@@ -17,6 +17,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [selectedRes, setSelectedRes] = useState(streamQuality.resolution);
   const [selectedFps, setSelectedFps] = useState(streamQuality.fps);
+  const [selectedBitrate, setSelectedBitrate] = useState(streamQuality.bitrate || '8000 Kbps');
   const [noiseSuppression, setNoiseSuppression] = useState(true);
   const [echoCancellation, setEchoCancellation] = useState(true);
 
@@ -27,6 +28,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ...streamQuality,
       resolution: selectedRes,
       fps: selectedFps,
+      bitrate: selectedBitrate,
     });
     onClose();
   };
@@ -40,7 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -51,7 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-bold text-zinc-100">Configurações de Transmissão</h3>
-            <p className="text-xs text-zinc-400">DMG LIVE SHARE • live.walacemendes.com.br</p>
+            <p className="text-xs text-zinc-400">DMG LIVE SHARE • Transmissão em Alta Fidelidade</p>
           </div>
         </div>
 
@@ -59,17 +61,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="space-y-3">
           <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
             <Monitor className="w-3.5 h-3.5 text-indigo-400" />
-            Qualidade de Compartilhamento de Gameplay
+            Resolução de Transmissão
           </label>
 
           {/* Resolution Options */}
-          <div className="grid grid-cols-3 gap-2">
-            {(['720p', '1080p', '1440p'] as const).map((res) => (
+          <div className="grid grid-cols-4 gap-2">
+            {(['720p', '1080p', '1440p', '4K'] as const).map((res) => (
               <button
                 key={res}
                 type="button"
-                onClick={() => setSelectedRes(res)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                onClick={() => {
+                  setSelectedRes(res);
+                  if (res === '4K') setSelectedBitrate('18000 Kbps');
+                  else if (res === '1440p') setSelectedBitrate('12000 Kbps');
+                  else if (res === '1080p') setSelectedBitrate('8000 Kbps');
+                  else setSelectedBitrate('4000 Kbps');
+                }}
+                className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   selectedRes === res
                     ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/25'
                     : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
@@ -87,15 +95,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 key={fps}
                 type="button"
                 onClick={() => setSelectedFps(fps)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   selectedFps === fps
                     ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/25'
                     : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
                 }`}
               >
-                {fps} FPS {fps === 60 && '🔥 (Ideal p/ jogos)'}
+                {fps} FPS {fps === 60 && '🔥 (Jogos e Filmes)'}
               </button>
             ))}
+          </div>
+
+          {/* Bitrate Options */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-[11px] font-semibold text-zinc-400">
+              Taxa de Dados / Bitrate (Nitidez da Imagem)
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { label: '4.000 Kbps (Básico)', value: '4000 Kbps' },
+                { label: '8.000 Kbps (1080p HD)', value: '8000 Kbps' },
+                { label: '12.000 Kbps (2K Ultra)', value: '12000 Kbps' },
+                { label: '18.000 Kbps (4K Máx)', value: '18000 Kbps' },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setSelectedBitrate(item.value)}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer text-left ${
+                    selectedBitrate === item.value
+                      ? 'bg-emerald-600/25 text-emerald-300 border-emerald-500/50 shadow-sm'
+                      : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
