@@ -35,11 +35,11 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
     setTimeout(() => setCopiedType(null), 2000);
   };
 
-  const domainUrl = 'https://live.walacemendes.com/dmg-live-share';
-  const customRoomLink = `${domainUrl}/?room=${encodeURIComponent(currentRoomId)}`;
+  const domainUrl = 'https://live.walacemendes.com.br';
+  const customRoomLink = getShareableRoomUrl(currentRoomId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
       <div className="bg-[#0c0e18] border border-[#1f243a] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col text-zinc-100">
         {/* Header */}
         <div className="p-5 border-b border-[#1f243a] flex items-center justify-between sticky top-0 bg-[#0c0e18]/95 backdrop-blur z-10">
@@ -49,10 +49,10 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-zinc-100 flex items-center gap-2">
-                Deploy no Domínio <span className="text-indigo-400 font-mono">live.walacemendes.com/dmg-live-share</span>
+                Tutorial: Subdomínio <span className="text-indigo-400 font-mono">live.walacemendes.com.br</span>
               </h2>
               <p className="text-xs text-zinc-400">
-                Alternativa ao Discord Go Live pronta para jogar e assistir filmes juntos
+                Integrado como um projeto do seu site oficial <span className="text-zinc-300 font-medium">walacemendes.com.br</span>
               </p>
             </div>
           </div>
@@ -68,13 +68,13 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
         <div className="p-6 space-y-6 text-xs text-zinc-300">
           {/* Top Banner Notice */}
           <div className="bg-indigo-950/40 border border-indigo-800/60 rounded-xl p-4 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            <FolderGit2 className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
             <div>
               <div className="font-semibold text-indigo-200 text-sm">
-                HTTPS & WebRTC Ativos
+                Projeto Integrado na sua "Aba Projetos"
               </div>
               <p className="text-zinc-400 text-xs mt-1 leading-relaxed">
-                O navegador exige conexão <strong>HTTPS (SSL)</strong> para permitir o compartilhamento de tela com captura de áudio estéreo do jogo/filme. A rota <strong>/dmg-live-share</strong> já está configurada tanto no servidor Node/Express quanto no Vite.
+                O <strong>DMG-GOLIVE</strong> é um módulo do seu site principal. Seu site institucional continua em <code>walacemendes.com.br</code> e você adiciona o card na aba de projetos abrindo <code>live.walacemendes.com.br</code> com WebRTC 60 FPS, microfone e chat ao vivo.
               </p>
             </div>
           </div>
@@ -82,32 +82,28 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
           {/* Step by step */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-              Passo a Passo de Deploy
+              Passo a Passo Rápido
             </h3>
 
-            {/* Step 1: Git Commit */}
+            {/* Step 1: GitHub Push */}
             <div className="bg-[#121422] border border-[#21263c] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-semibold text-zinc-100 text-sm">
                   <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">1</span>
-                  Commit e Push no Repositório Git
+                  Enviar para o Repositório GitHub
                 </div>
-                <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-mono">Git & Repo</span>
+                <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-mono">ualasimendes/DMG-GOLIVE</span>
               </div>
               <p className="text-zinc-400 text-xs">
-                No terminal do projeto, execute os comandos:
+                No terminal do projeto, envie o código para seu repositório:
               </p>
               <div className="bg-black/60 border border-zinc-800/80 rounded-lg p-3 font-mono text-[11px] text-zinc-300 relative">
                 <code>
-                  git init<br />
-                  git add .<br />
-                  git commit -m "feat: login system and real webrtc screen share"<br />
-                  git branch -M main<br />
-                  git remote add origin https://github.com/SEU-USUARIO/dmg-live-share.git<br />
+                  git remote add origin https://github.com/ualasimendes/DMG-GOLIVE.git<br />
                   git push -u origin main
                 </code>
                 <button
-                  onClick={() => copyToClipboard('git init && git add . && git commit -m "feat: login system and real webrtc screen share" && git branch -M main', 'git')}
+                  onClick={() => copyToClipboard('git remote add origin https://github.com/ualasimendes/DMG-GOLIVE.git\ngit push -u origin main', 'git')}
                   className="absolute top-2 right-2 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-300"
                   title="Copiar comando"
                 >
@@ -116,52 +112,62 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
               </div>
             </div>
 
-            {/* Step 2: Hosting / Server */}
+            {/* Step 2: DNS Config */}
             <div className="bg-[#121422] border border-[#21263c] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-semibold text-zinc-100 text-sm">
                   <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">2</span>
-                  Build e Start no Servidor (VPS / Docker / Render)
+                  Cadastrar Registro CNAME no DNS (Registro.br / Cloudflare / Hostinger)
                 </div>
-                <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-semibold">Node.js</span>
+                <span className="text-[10px] bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded font-mono">live.walacemendes.com.br</span>
               </div>
               <p className="text-zinc-400 text-xs leading-relaxed">
-                • <strong>Instalar dependências:</strong> <code className="bg-black/50 px-1 py-0.5 rounded text-indigo-300 font-mono">npm install</code><br />
-                • <strong>Build de produção:</strong> <code className="bg-black/50 px-1 py-0.5 rounded text-indigo-300 font-mono">npm run build</code><br />
-                • <strong>Iniciar servidor:</strong> <code className="bg-black/50 px-1 py-0.5 rounded text-indigo-300 font-mono">npm start</code>
+                Na zona DNS do domínio <strong>walacemendes.com.br</strong>, adicione:
               </p>
+
+              {/* DNS Table Example */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border border-zinc-800 rounded-lg overflow-hidden font-mono text-[11px]">
+                  <thead className="bg-zinc-800/80 text-zinc-300">
+                    <tr>
+                      <th className="p-2">Tipo</th>
+                      <th className="p-2">Nome (Host)</th>
+                      <th className="p-2">Destino / Valor</th>
+                      <th className="p-2">TTL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800 bg-zinc-950/70 text-zinc-300">
+                    <tr>
+                      <td className="p-2 font-bold text-blue-400">CNAME</td>
+                      <td className="p-2 font-bold text-zinc-100">live</td>
+                      <td className="p-2 text-indigo-300">seu-app.onrender.com (ou IP da VPS em registro A)</td>
+                      <td className="p-2 text-zinc-500">Auto</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Step 3: Nginx Reverse Proxy */}
+            {/* Step 3: Aba Projetos */}
             <div className="bg-[#121422] border border-[#21263c] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-semibold text-zinc-100 text-sm">
                   <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">3</span>
-                  Configuração Nginx (Reverse Proxy & WebSocket)
+                  Card na Aba Projetos do seu Site Principal
                 </div>
-                <span className="text-[10px] bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded font-mono">live.walacemendes.com</span>
+                <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-semibold">Portfólio</span>
               </div>
               <p className="text-zinc-400 text-xs leading-relaxed">
-                No arquivo de configuração do seu Nginx (ex: <code>/etc/nginx/sites-available/live.walacemendes.com</code>):
+                No site principal (<code>walacemendes.com.br</code>), crie um card apontando o botão para:
               </p>
-
-              <div className="bg-black/60 border border-zinc-800/80 rounded-lg p-3 font-mono text-[11px] text-zinc-300 relative">
-                <pre className="overflow-x-auto">
-{`location /dmg-live-share {
-    proxy_pass http://localhost:3000;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_cache_bypass $http_upgrade;
-}`}
-                </pre>
+              <div className="p-2.5 bg-black/60 border border-zinc-800 rounded-lg font-mono text-indigo-300 flex items-center justify-between">
+                <span>https://live.walacemendes.com.br</span>
                 <button
-                  onClick={() => copyToClipboard('location /dmg-live-share {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection "upgrade";\n    proxy_set_header Host $host;\n    proxy_cache_bypass $http_upgrade;\n}', 'nginx')}
-                  className="absolute top-2 right-2 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-300"
-                  title="Copiar Nginx config"
+                  onClick={() => copyToClipboard('https://live.walacemendes.com.br', 'main-link')}
+                  className="p-1 text-zinc-400 hover:text-white"
+                  title="Copiar URL"
                 >
-                  {copiedType === 'nginx' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedType === 'main-link' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -171,7 +177,7 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
           <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-[#0e101b] border border-indigo-800/50 rounded-xl p-4 space-y-2">
             <div className="font-semibold text-zinc-200 text-xs flex items-center gap-1.5">
               <Zap className="w-4 h-4 text-amber-400" />
-              Link direto para enviar aos amigos no WhatsApp / Discord:
+              Link direto da sua sala para amigos:
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -197,7 +203,7 @@ export const DomainSetupModal: React.FC<DomainSetupModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl font-medium text-xs transition-colors"
           >
-            Fechar
+            Fechar Tutorial
           </button>
         </div>
       </div>

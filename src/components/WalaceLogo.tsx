@@ -50,7 +50,7 @@ export const WalaceLogo: React.FC<WalaceLogoProps> = ({
             Walace <span className="text-indigo-400">Share</span>
           </span>
           <span className="text-[10px] text-zinc-500 font-mono tracking-tight -mt-0.5">
-            live.walacemendes.com
+            live.walacemendes.com.br
           </span>
         </div>
       )}

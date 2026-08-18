@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Volume2, ShieldAlert, Monitor, Sparkles, User as UserIcon } from 'lucide-react';
+import { Plus, Settings, Volume2, ShieldAlert, Monitor, Sparkles, User as UserIcon, FolderGit2, ExternalLink } from 'lucide-react';
 import { WalaceLogo } from './WalaceLogo';
 import { AuthUser } from '../types';
 
@@ -28,17 +28,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
       className="w-16 md:w-18 bg-[#08090f] border-r border-[#191c28] flex flex-col items-center py-3.5 select-none shrink-0 z-20"
     >
       {/* Brand Icon */}
-      <div className="mb-4 group relative flex items-center justify-center">
+      <div className="mb-3 group relative flex items-center justify-center">
         <button
           id="btn-logo-home"
           onClick={() => onSelectRoom(activeRoomId)}
           className="transition-transform active:scale-95 focus:outline-none"
-          title="Walace Share - live.walacemendes.com"
+          title="DMG Live Share - live.walacemendes.com.br"
         >
           <WalaceLogo size="md" />
         </button>
         <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-          Walace Share
+          DMG Live Share (live.walacemendes.com.br)
+        </div>
+      </div>
+
+      {/* Main Site / Projetos Link Icon */}
+      <div className="group relative mb-2">
+        <a
+          href="https://walacemendes.com.br"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-10 h-10 rounded-xl bg-[#121422] hover:bg-[#1c2032] text-zinc-400 hover:text-indigo-300 border border-[#21263c] hover:border-indigo-500/50 flex items-center justify-center transition-all"
+          title="Voltar ao Portfólio / Aba Projetos (walacemendes.com.br)"
+        >
+          <FolderGit2 className="w-4 h-4 text-indigo-400" />
+        </a>
+        <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+          Aba Projetos (walacemendes.com.br)
         </div>
       </div>
 
@@ -134,13 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {(currentUser.displayName || currentUser.username).slice(0, 2).toUpperCase()}
               </div>
             )}
-            {/* Status dot (Online 🟢) */}
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#08090f] rounded-full ring-1 ring-emerald-500/30" />
           </button>
 
           <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
             <div className="font-semibold text-zinc-200">{currentUser.displayName || currentUser.username}</div>
-            <div className="text-[10px] text-emerald-400">🟢 Online • Clique para editar perfil</div>
+            <div className="text-[10px] text-emerald-400">🟢 Online • Editar perfil</div>
           </div>
         </div>
       </div>

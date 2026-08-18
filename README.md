@@ -1,6 +1,9 @@
-# 🎮 LiveShare Play — DMG Live Share (Alternativa Discord Go Live)
+# 🎮 DMG Live Share (DMG-GOLIVE) — Alternativa ao Discord Go Live
 
 > Compartilhamento de tela P2P em tempo real com áudio estéreo de jogos e filmes, microfone e chat ao vivo para você e seus amigos.
+> **Integrado ao portfólio:** [walacemendes.com.br](https://walacemendes.com.br)
+> **Subdomínio:** [live.walacemendes.com.br](https://live.walacemendes.com.br)
+> **Repositório oficial:** [ualasimendes/DMG-GOLIVE](https://github.com/ualasimendes/DMG-GOLIVE)
 
 ---
 
@@ -13,12 +16,12 @@
   - Modo Convidado rápido ("Entrar como Convidado") para acesso instantâneo sem cadastro.
   - Edição de perfil com cor do avatar, nome de exibição e foto personalizada.
 - **Transmissão Gamer & Filmes em Alta Resolução**:
-  - Suporte a 720p, 1080p e 1440p @ 60 FPS com áudio cristalino.
+  - Suporte a 720p, 1080p e 1440p @ 60 FPS com áudio estéreo cristalino.
   - Alternador de streamers: se 2 ou mais pessoas compartilharem tela, alterne entre elas com 1 clique.
   - Modo Picture-in-Picture (PiP), Tela Cheia e Captura de Screenshot da gameplay.
   - Indicador de quem está falando (borda verde iluminada por detecção de áudio).
-- **Pronto para Deploy no Domínio**:
-  - Configurado para `live.walacemendes.com/dmg-live-share`.
+- **Integrado na Aba Projetos**:
+  - Link de navegação de volta para o site principal [walacemendes.com.br](https://walacemendes.com.br).
 
 ---
 
@@ -42,7 +45,6 @@ npm run dev
 
 # Acesse no navegador:
 # http://localhost:3000
-# ou http://localhost:3000/dmg-live-share
 ```
 
 ---
@@ -57,4 +59,6 @@ npm run build
 npm start
 ```
 
-Consulte o arquivo [DEPLOY.md](file:///C:/Users/walac/Downloads/TONS%20OF%20DAMAGE%20-%20LIVE%20SHARE/DEPLOY.md) para o guia detalhado de deploy no seu domínio `live.walacemendes.com/dmg-live-share`.
+Consulte os tutoriais detalhados:
+- [TUTORIAL_DOMINIO.md](file:///C:/Users/walac/Downloads/TONS%20OF%20DAMAGE%20-%20LIVE%20SHARE/TUTORIAL_DOMINIO.md): Tutorial de DNS para `live.walacemendes.com.br` e integração na Aba Projetos.
+- [DEPLOY.md](file:///C:/Users/walac/Downloads/TONS%20OF%20DAMAGE%20-%20LIVE%20SHARE/DEPLOY.md): Guia de deploy em VPS com Nginx e SSL ou plataformas Cloud (Render/Railway).

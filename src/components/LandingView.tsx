@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { WalaceLogo } from './WalaceLogo';
-import { Play, Plus, ArrowRight, Gamepad2, Shield, Zap, User, LogIn, Sparkles } from 'lucide-react';
+import { Play, Plus, ArrowRight, Gamepad2, Shield, Zap, User, LogIn, Sparkles, FolderGit2, Globe, ExternalLink } from 'lucide-react';
 import { AuthUser } from '../types';
 
 interface LandingViewProps {
@@ -43,12 +43,26 @@ export const LandingView: React.FC<LandingViewProps> = ({
       <header className="w-full max-w-5xl flex items-center justify-between z-10 py-2">
         <WalaceLogo size="md" showText={true} />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Main Site / Projetos Link */}
+          <a
+            href="https://walacemendes.com.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#121420] hover:bg-[#1a1d2e] border border-[#21263c] text-xs font-semibold text-zinc-300 hover:text-white transition-all shadow-sm group"
+            title="Voltar ao Portfólio / Aba Projetos"
+          >
+            <FolderGit2 className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+            <span>Aba Projetos</span>
+            <ExternalLink className="w-3 h-3 text-zinc-500" />
+          </a>
+
+          {/* DNS / Domain Guide */}
           <button
             onClick={onOpenDomainGuide}
-            className="hidden sm:inline-block px-3 py-1 rounded-full bg-[#121420] hover:bg-[#1a1d2e] border border-[#21263c] font-mono text-xs text-indigo-300 transition-colors"
+            className="hidden md:inline-block px-3 py-1.5 rounded-xl bg-[#121420] hover:bg-[#1a1d2e] border border-[#21263c] font-mono text-xs text-indigo-300 hover:text-indigo-200 transition-colors"
           >
-            live.walacemendes.com
+            live.walacemendes.com.br
           </button>
 
           {/* User Profile / Auth Button */}
@@ -79,17 +93,23 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
       {/* Main Content Box */}
       <main className="w-full max-w-md my-auto z-10 flex flex-col items-center text-center py-6">
+        {/* Project Breadcrumb Indicator */}
+        <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-300 font-medium">
+          <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Projeto Integrado ao portfólio <strong>walacemendes.com.br</strong></span>
+        </div>
+
         {/* Emblem & Branding */}
         <div className="mb-5 flex flex-col items-center">
           <WalaceLogo size="lg" className="mb-4" />
           <h2 className="text-xs font-bold tracking-widest text-indigo-400 uppercase font-mono mb-1">
-            WALACE SHARE
+            DMG LIVE SHARE (DMG-GOLIVE)
           </h2>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-100 tracking-tight leading-tight">
             Compartilhe sua gameplay.
           </h1>
           <p className="text-zinc-400 text-sm sm:text-base mt-2 font-sans max-w-sm leading-relaxed">
-            Crie uma sala e compartilhe sua tela com seus amigos em 1080p 60 FPS com áudio do jogo.
+            Alternativa ao Discord Go Live para assistir jogos e filmes com áudio estéreo em 1080p 60 FPS.
           </p>
         </div>
 
@@ -191,14 +211,25 @@ export const LandingView: React.FC<LandingViewProps> = ({
       {/* Footer */}
       <footer className="w-full max-w-5xl flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-600 py-3 border-t border-[#141724] gap-2 z-10">
         <div>
-          Walace Share © 2026 • Hospedado em <span className="text-zinc-400 font-mono">live.walacemendes.com</span>
+          Walace Mendes © 2026 • Hospedado em <span className="text-zinc-400 font-mono">live.walacemendes.com.br</span>
         </div>
-        <button
-          onClick={onOpenDomainGuide}
-          className="font-mono text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
-        >
-          Guia de Deploy & DNS ➔
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="https://github.com/ualasimendes/DMG-GOLIVE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            GitHub: ualasimendes/DMG-GOLIVE
+          </a>
+          <span>•</span>
+          <button
+            onClick={onOpenDomainGuide}
+            className="font-mono text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Tutorial DNS & Domínio ➔
+          </button>
+        </div>
       </footer>
     </div>
   );
