@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, AlertCircle, X, Check, Mail, User, ArrowRight } from 'lucide-react';
+import { Shield, AlertCircle, X, Check } from 'lucide-react';
 import { AuthUser } from '../types';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -9,15 +9,16 @@ interface AuthModalProps {
   onAuthSuccess: (user: AuthUser, token: string) => void;
 }
 
-const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
+// Google Client ID
+const GOOGLE_CLIENT_ID =
+  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+  '1048491849182-livewalacemendes.apps.googleusercontent.com';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
 }) => {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const googleBtnRef = useRef<HTMLDivElement | null>(null);
@@ -26,6 +27,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     setError(null);
     try {
+      if (!response.credential) {
+        throw new Error('Nenhuma credencial retornada pelo Google.');
+      }
+
       const apiBase = getApiBaseUrl();
       const res = await fetch(`${apiBase}/auth/google`, {
         method: 'POST',
@@ -50,74 +55,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleGoogleEmailLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!email.trim()) {
-      setError('Por favor, informe seu e-mail do Google (@gmail.com).');
-      return;
-    }
-
-    setLoading(true);
+  const handleTriggerGoogle = () => {
     setError(null);
-
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanName = name.trim() || cleanEmail.split('@')[0];
-
-      const googleProfile = {
-        sub: `g_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`,
-        email: cleanEmail,
-        name: cleanName,
-        picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
-      };
-
-      const apiBase = getApiBaseUrl();
-      const res = await fetch(`${apiBase}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: googleProfile }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Falha ao autenticar.');
-      }
-
-      localStorage.setItem('dmg_auth_token', data.token);
-      localStorage.setItem('dmg_auth_user', JSON.stringify(data.user));
-
-      onAuthSuccess(data.user, data.token);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com a conta Google.');
-    } finally {
-      setLoading(false);
+    if ((window as any).google?.accounts?.id) {
+      (window as any).google.accounts.id.prompt();
     }
   };
 
   useEffect(() => {
     if (!isOpen) return;
 
-    if (GOOGLE_CLIENT_ID && (window as any).google?.accounts?.id && googleBtnRef.current) {
-      try {
-        (window as any).google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleGoogleCallback,
-        });
+    const interval = setInterval(() => {
+      if ((window as any).google?.accounts?.id && googleBtnRef.current) {
+        clearInterval(interval);
+        try {
+          (window as any).google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCallback,
+            auto_select: true,
+          });
 
-        (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'filled_black',
-          size: 'large',
-          type: 'standard',
-          text: 'signin_with',
-          shape: 'rectangular',
-          logo_alignment: 'left',
-          width: 320,
-        });
-      } catch (err) {
-        console.warn('Google GSI initialization notice:', err);
+          (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: 'filled_black',
+            size: 'large',
+            type: 'standard',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+            width: 320,
+          });
+        } catch (err) {
+          console.warn('Google GSI initialization notice:', err);
+        }
       }
-    }
+    }, 150);
+
+    return () => clearInterval(interval);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -126,7 +99,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in select-none">
       <div
         id="modal-auth"
-        className="w-full max-w-md bg-[#0c0e17] border border-[#1f2438] rounded-2xl p-6 sm:p-7 shadow-2xl relative text-zinc-100 space-y-5 text-center"
+        className="w-full max-w-md bg-[#0c0e17] border border-[#1f2438] rounded-2xl p-6 sm:p-8 shadow-2xl relative text-zinc-100 space-y-6 text-center"
       >
         {/* Close Button */}
         <button
@@ -138,9 +111,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </button>
 
         {/* Modal Header */}
-        <div className="flex flex-col items-center pt-1">
+        <div className="flex flex-col items-center pt-2">
           {/* Google Icon Badge */}
-          <div className="w-14 h-14 rounded-2xl bg-white p-2.5 shadow-xl flex items-center justify-center mb-3.5">
+          <div className="w-16 h-16 rounded-2xl bg-white p-3 shadow-xl flex items-center justify-center mb-4">
             <svg viewBox="0 0 24 24" className="w-full h-full">
               <path
                 fill="#4285F4"
@@ -162,10 +135,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <h3 className="text-xl font-extrabold text-zinc-100">
-            Acesse com sua Conta Google
+            Entre com sua Conta Google
           </h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-            Identificação segura para criar salas e transmitir gameplay.
+            O acesso a esta plataforma é <strong>exclusivo via Google OAuth</strong> para garantir a segurança da transmissão.
           </p>
         </div>
 
@@ -177,51 +150,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* Official Google GSI if Client ID exists */}
-        {GOOGLE_CLIENT_ID && (
-          <div className="flex justify-center min-h-[44px]">
-            <div ref={googleBtnRef} />
-          </div>
-        )}
+        {/* Official Google Button Container */}
+        <div className="space-y-4 flex flex-col items-center justify-center w-full py-2">
+          <div ref={googleBtnRef} className="flex justify-center min-h-[44px] w-full" />
 
-        {/* Direct Google Account Login Form */}
-        <form onSubmit={handleGoogleEmailLogin} className="space-y-3 text-left">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Seu E-mail Google (@gmail.com)</span>
-            </label>
-            <input
-              id="input-google-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="exemplo@gmail.com"
-              className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Seu Nome ou Nickname</span>
-            </label>
-            <input
-              id="input-google-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Walace Mendes"
-              className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
+          {/* Backup trigger button if SDK button doesn't render immediately */}
           <button
-            type="submit"
-            id="btn-google-login-direct"
+            type="button"
+            id="btn-google-login-oauth"
+            onClick={handleTriggerGoogle}
             disabled={loading}
-            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transition-all transform active:scale-95 disabled:opacity-50 mt-2 cursor-pointer"
+            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-zinc-900 border-t-transparent rounded-full" />
@@ -245,20 +184,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                   />
                 </svg>
-                <span>Entrar com a Conta Google</span>
+                <span>Fazer Login com o Google</span>
               </>
             )}
           </button>
-        </form>
+        </div>
 
         {/* Security & Features footer */}
-        <div className="pt-3 border-t border-[#1b2032] flex flex-col items-center gap-1.5 text-xs text-zinc-500">
+        <div className="pt-3 border-t border-[#1b2032] flex flex-col items-center gap-1 text-xs text-zinc-500">
           <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Identificação Segura Google</span>
+            <span>Autenticação Google OAuth 2.0</span>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Seus dados são protegidos e associados ao seu e-mail.
+            Apenas contas oficiais Google têm permissão de acesso.
           </p>
         </div>
       </div>
