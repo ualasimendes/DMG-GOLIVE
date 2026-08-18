@@ -23,12 +23,25 @@ export function createAudioLevelDetector(
   threshold: number = 15
 ): () => void {
   try {
-    const audioTracks = stream.getAudioTracks();
+    const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === 'live');
     if (audioTracks.length === 0) return () => {};
 
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return () => {};
     const audioCtx = new AudioCtx();
+
+    if (audioCtx.state === 'suspended') {
+      const resume = () => {
+        audioCtx.resume().catch(() => {});
+        window.removeEventListener('click', resume);
+        window.removeEventListener('keydown', resume);
+        window.removeEventListener('touchstart', resume);
+      };
+      window.addEventListener('click', resume, { once: true });
+      window.addEventListener('keydown', resume, { once: true });
+      window.addEventListener('touchstart', resume, { once: true });
+    }
+
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.4;

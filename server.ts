@@ -35,6 +35,7 @@ interface SafeUser {
 
 interface UserConnection {
   id: string;
+  email?: string;
   name: string;
   avatar?: string;
   avatarColor: string;
@@ -209,7 +210,12 @@ const roomNames = new Map<string, string>(); // roomId -> Room Name
 const roomDestructionTimers = new Map<string, { expiresAt: number; timer: NodeJS.Timeout }>(); // roomId -> countdown timer
 
 // Super Admin Emails (Strict ADMIN 1 Global Powers)
-const SUPER_ADMIN_EMAILS = ["lacee.mds@gmail.com", "walac@walacemendes.com"];
+const SUPER_ADMIN_EMAILS = [
+  "lacee.mds@gmail.com",
+  "lacee.mds2@gmail.com",
+  "lacee.mds3@gmail.com",
+  "walac@walacemendes.com",
+];
 
 // Initialize permanent VIP room DMG#PREMIUM
 rooms.set(PERMANENT_ROOM_ID, new Map());
@@ -289,9 +295,10 @@ function getRoomUsersList(roomId: string) {
   return Array.from(roomUsers.values()).map((u) => ({
     id: u.id,
     name: u.name,
+    email: u.email,
     avatar: u.avatar,
     avatarColor: u.avatarColor,
-    role: getUserRole(roomId, u.id, (u as any).email),
+    role: getUserRole(roomId, u.id, u.email),
     isStreaming: u.isStreaming,
     isMuted: u.isMuted,
     isDeaf: u.isDeaf,
@@ -343,13 +350,14 @@ wss.on("connection", (ws: WebSocket) => {
 
           currentUser = {
             id: userId,
+            email: email ? String(email).toLowerCase().trim() : undefined,
             name: name || `Gamer-${userId.slice(0, 4)}`,
             avatar: avatar || undefined,
             avatarColor: avatarColor || "#6366f1",
             roomId,
             ws,
             isStreaming: false,
-            isMuted: false,
+            isMuted: true,
             isDeaf: false,
             hasCamera: false,
             joinedAt: Date.now(),
@@ -384,9 +392,11 @@ wss.on("connection", (ws: WebSocket) => {
               type: "user-joined",
               user: {
                 id: currentUser.id,
+                email: currentUser.email,
                 name: currentUser.name,
                 avatar: currentUser.avatar,
                 avatarColor: currentUser.avatarColor,
+                role: getUserRole(roomId, currentUser.id, currentUser.email),
                 isStreaming: currentUser.isStreaming,
                 isMuted: currentUser.isMuted,
                 isDeaf: currentUser.isDeaf,
@@ -441,7 +451,47 @@ wss.on("connection", (ws: WebSocket) => {
           if (!currentUser) return;
           const { isStreaming, isMuted, isDeaf, hasCamera, streamTitle } = data;
 
-          if (isStreaming !== undefined) currentUser.isStreaming = isStreaming;
+          if (isStreaming !== undefined) {
+            // Regra estrita: Apenas 1 transmissão ao vivo por vez na sala
+            if (isStreaming === true) {
+              const roomUsers = rooms.get(currentUser.roomId);
+              let existingStreamer: UserConnection | null = null;
+              if (roomUsers) {
+                for (const [uId, uConn] of roomUsers.entries()) {
+                  if (uId !== currentUser.id && uConn.isStreaming) {
+                    existingStreamer = uConn;
+                    break;
+                  }
+                }
+              }
+
+              if (existingStreamer) {
+                ws.send(
+                  JSON.stringify({
+                    type: "stream-rejected",
+                    message: `Já existe uma transmissão ao vivo de ${existingStreamer.name}. Apenas 1 transmissão por vez é permitida.`,
+                  })
+                );
+                ws.send(
+                  JSON.stringify({
+                    type: "chat-message",
+                    message: {
+                      id: `sys-stream-limit-${Date.now()}`,
+                      roomId: currentUser.roomId,
+                      senderId: "system",
+                      senderName: "Sistema 🚫",
+                      avatarColor: "#ef4444",
+                      text: `⚠️ Transmissão não permitida: ${existingStreamer.name} já está transmitindo. Apenas 1 live por vez é permitida nesta sala.`,
+                      timestamp: Date.now(),
+                      type: "system",
+                    },
+                  })
+                );
+                return;
+              }
+            }
+            currentUser.isStreaming = isStreaming;
+          }
           if (isMuted !== undefined) currentUser.isMuted = isMuted;
           if (isDeaf !== undefined) currentUser.isDeaf = isDeaf;
           if (hasCamera !== undefined) currentUser.hasCamera = hasCamera;

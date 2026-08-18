@@ -51,7 +51,10 @@ export const Stage: React.FC<StageProps> = ({
   const isMe = streamer?.id === currentUserId;
   const remoteStreamData = streamer && !isMe ? remoteStreams.get(streamer.id) : null;
   const activeMediaStream = isMe ? localStream : (remoteStreamData?.stream || (streamer as any)?.stream || null);
-  const hasVideoTrack = !!(activeMediaStream && activeMediaStream.getVideoTracks().length > 0);
+  const hasVideoTrack = !!(
+    activeMediaStream &&
+    activeMediaStream.getVideoTracks().some((t) => t.readyState === 'live')
+  );
 
   // Bind active media stream to video element
   useEffect(() => {
@@ -59,11 +62,13 @@ export const Stage: React.FC<StageProps> = ({
     if (!videoEl) return;
 
     if (activeMediaStream && hasVideoTrack) {
-      videoEl.srcObject = activeMediaStream;
+      if (videoEl.srcObject !== activeMediaStream) {
+        videoEl.srcObject = activeMediaStream;
+      }
       const playPromise = videoEl.play();
       if (playPromise !== undefined) {
         playPromise.catch((e) => {
-          console.log('Autoplay requires muted state on initial frame:', e);
+          console.log('[Stage Video] Autoplay requires muted state on initial frame:', e.message);
           videoEl.muted = true;
           videoEl.play().catch((err) => console.warn('Secondary play warning:', err));
         });

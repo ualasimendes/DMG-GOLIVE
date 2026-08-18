@@ -14,7 +14,7 @@ import { AuthUser, UserProfile } from './types';
 import { Check } from 'lucide-react';
 import { getApiBaseUrl } from './utils/api';
 
-// Dedicated Background Audio Player for each connected peer
+// Dedicated Background Audio Player for each connected peer with Autoplay Recovery
 const RemoteAudioPlayer: React.FC<{ stream: MediaStream; isDeaf: boolean }> = ({ stream, isDeaf }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -22,18 +22,43 @@ const RemoteAudioPlayer: React.FC<{ stream: MediaStream; isDeaf: boolean }> = ({
     const audioEl = audioRef.current;
     if (!audioEl || !stream) return;
 
-    audioEl.srcObject = stream;
-    audioEl.muted = isDeaf;
-    const playPromise = audioEl.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((err) => {
-        console.warn('Audio play request notice:', err);
-      });
+    if (audioEl.srcObject !== stream) {
+      audioEl.srcObject = stream;
     }
+    audioEl.muted = isDeaf;
+
+    const tryPlay = () => {
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[Audio Player] Autoplay restrito pelo navegador, aguardando clique:', err.message);
+          const handleUserGesture = () => {
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {});
+            }
+            window.removeEventListener('click', handleUserGesture);
+            window.removeEventListener('keydown', handleUserGesture);
+            window.removeEventListener('touchstart', handleUserGesture);
+          };
+          window.addEventListener('click', handleUserGesture, { once: true });
+          window.addEventListener('keydown', handleUserGesture, { once: true });
+          window.addEventListener('touchstart', handleUserGesture, { once: true });
+        });
+      }
+    };
+
+    tryPlay();
   }, [stream, isDeaf]);
 
   return <audio ref={audioRef} autoPlay playsInline muted={isDeaf} className="hidden" />;
 };
+
+const SUPER_ADMIN_EMAILS = [
+  'lacee.mds@gmail.com',
+  'lacee.mds2@gmail.com',
+  'lacee.mds3@gmail.com',
+  'walac@walacemendes.com',
+];
 
 export default function App() {
   // Navigation & Room State
@@ -146,6 +171,7 @@ export default function App() {
       name: currentUser ? (currentUser.displayName || currentUser.username) : 'Visitante',
       avatar: currentUser?.avatarUrl,
       avatarColor: currentUser?.avatarColor || '#6366f1',
+      email: currentUser?.email,
     }),
     [currentUser]
   );
@@ -202,10 +228,10 @@ export default function App() {
     }
   }, [currentView, isConnected, currentUser]);
 
-  // Transform remoteStreams into list of streamers (Filter ONLY real video tracks)
+  // Transform remoteStreams into list of streamers (Filter ONLY real live video tracks)
   const allStreamers = useMemo(() => {
     const list = Array.from(remoteStreams.values())
-      .filter((peer: any) => peer.stream && peer.stream.getVideoTracks().length > 0)
+      .filter((peer: any) => peer.stream && peer.stream.getVideoTracks().some((t: any) => t.readyState === 'live'))
       .map((peer: any) => ({
         id: peer.userId,
         name: peer.userName,
@@ -242,7 +268,7 @@ export default function App() {
           avatar: u.avatar,
           avatarColor: u.avatarColor,
           isStreaming: true,
-          stream: rData?.stream || null as any,
+          stream: rData?.stream || (null as any),
           gameTitle: u.streamTitle || 'Transmissão Ao Vivo',
           viewers: users.length,
           isLocal: false,
@@ -270,7 +296,7 @@ export default function App() {
       name: u.name,
       avatar: u.avatar,
       avatarColor: u.avatarColor,
-      role: u.role || (u.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(u.email.toLowerCase()) ? 'admin1' : 'member'),
+      role: u.role || (u.email && SUPER_ADMIN_EMAILS.includes(u.email.toLowerCase().trim()) ? 'admin1' : 'member'),
       status: 'online',
       isStreaming: u.isStreaming,
       isSpeaking: u.isSpeaking,
@@ -287,7 +313,7 @@ export default function App() {
         meInList.isSpeaking = isLocalSpeaking;
         meInList.isMuted = isMuted;
         meInList.isDeaf = isDeaf;
-        if (currentUser.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(currentUser.email.toLowerCase())) {
+        if (currentUser.email && SUPER_ADMIN_EMAILS.includes(currentUser.email.toLowerCase().trim())) {
           meInList.role = 'admin1';
         }
       }
@@ -299,7 +325,7 @@ export default function App() {
   // Current User Role
   const currentUserRole = useMemo<'admin1' | 'admin2' | 'member'>(() => {
     if (!currentUser) return 'member';
-    if (currentUser.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(currentUser.email.toLowerCase())) {
+    if (currentUser.email && SUPER_ADMIN_EMAILS.includes(currentUser.email.toLowerCase().trim())) {
       return 'admin1';
     }
     const me = participants.find((p) => p.id === currentUser.id);
@@ -374,6 +400,13 @@ export default function App() {
       stopScreenShare();
       showToast('Transmissão de tela encerrada.');
     } else {
+      // Bloqueio: Apenas 1 live permitida por vez na sala
+      const activeStreamer = users.find((u) => u.isStreaming && u.id !== currentUser?.id);
+      if (activeStreamer) {
+        showToast(`⚠️ ${activeStreamer.name} já está transmitindo. Apenas 1 transmissão por vez é permitida nesta sala.`);
+        return;
+      }
+
       try {
         await startScreenShare();
         showToast('Compartilhando tela em 1080p 60 FPS!');

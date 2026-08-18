@@ -39,12 +39,15 @@ export const StreamCard: React.FC<StreamCardProps> = ({
 
   useEffect(() => {
     if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      
-      const vTracks = stream.getVideoTracks();
-      setHasVideoTrack(vTracks.length > 0);
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+      }
 
-      if (vTracks.length > 0) {
+      const vTracks = stream.getVideoTracks();
+      const isLive = vTracks.some((t) => t.readyState === 'live');
+      setHasVideoTrack(isLive);
+
+      if (isLive && vTracks.length > 0) {
         const settings = vTracks[0].getSettings();
         if (settings.width && settings.height) {
           setStreamResolution(`${settings.width}x${settings.height} ${settings.frameRate ? Math.round(settings.frameRate) + 'fps' : ''}`);
