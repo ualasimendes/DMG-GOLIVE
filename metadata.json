@@ -1,0 +1,6 @@
+{
+  "name": "Walace Share",
+  "description": "Alternativa moderna e rápida ao Discord para compartilhar tela e gameplay com amigos em walacemendes.com.br.",
+  "requestFramePermissions": ["microphone", "camera", "display-capture"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
