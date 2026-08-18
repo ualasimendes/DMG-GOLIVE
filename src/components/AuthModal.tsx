@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, AlertCircle, X, Check } from 'lucide-react';
+import { Shield, AlertCircle, X } from 'lucide-react';
 import { AuthUser } from '../types';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -9,10 +9,10 @@ interface AuthModalProps {
   onAuthSuccess: (user: AuthUser, token: string) => void;
 }
 
-// Google Client ID
+// Official Google Client ID for DMG Live Share (live.walacemendes.com.br)
 const GOOGLE_CLIENT_ID =
   (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
-  '1048491849182-livewalacemendes.apps.googleusercontent.com';
+  '986855077085-ba6jsg0nkt7s3oj78mersmgqard7usqg.apps.googleusercontent.com';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -55,7 +55,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleTriggerGoogle = () => {
+  const handleTriggerGooglePrompt = () => {
     setError(null);
     if ((window as any).google?.accounts?.id) {
       (window as any).google.accounts.id.prompt();
@@ -72,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           (window as any).google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCallback,
-            auto_select: true,
+            auto_select: false,
           });
 
           (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
@@ -88,7 +88,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           console.warn('Google GSI initialization notice:', err);
         }
       }
-    }, 150);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [isOpen]);
@@ -135,10 +135,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <h3 className="text-xl font-extrabold text-zinc-100">
-            Entre com sua Conta Google
+            Acesse com sua Conta Google
           </h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-            O acesso a esta plataforma é <strong>exclusivo via Google OAuth</strong> para garantir a segurança da transmissão.
+            Faça login com sua conta oficial do Google para criar salas e transmitir sua gameplay.
           </p>
         </div>
 
@@ -151,16 +151,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Official Google Button Container */}
-        <div className="space-y-4 flex flex-col items-center justify-center w-full py-2">
+        <div className="space-y-3 flex flex-col items-center justify-center w-full py-1">
           <div ref={googleBtnRef} className="flex justify-center min-h-[44px] w-full" />
 
-          {/* Backup trigger button if SDK button doesn't render immediately */}
+          {/* Backup trigger button */}
           <button
             type="button"
             id="btn-google-login-oauth"
-            onClick={handleTriggerGoogle}
+            onClick={handleTriggerGooglePrompt}
             disabled={loading}
-            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full max-w-[320px] py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-zinc-900 border-t-transparent rounded-full" />
@@ -194,10 +194,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="pt-3 border-t border-[#1b2032] flex flex-col items-center gap-1 text-xs text-zinc-500">
           <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Autenticação Google OAuth 2.0</span>
+            <span>Autenticação Oficial Google OAuth 2.0</span>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Apenas contas oficiais Google têm permissão de acesso.
+            Acesso verificado e seguro.
           </p>
         </div>
       </div>
