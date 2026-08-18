@@ -654,16 +654,11 @@ app.use("/dmg-live-share/api", apiRouter);
 
 // Vite Middleware & Static handling
 async function start() {
-  const isProd = process.env.NODE_ENV === "production" || fs.existsSync(path.join(process.cwd(), "dist"));
+  const distPath = path.join(process.cwd(), "dist");
+  const hasDist = fs.existsSync(path.join(distPath, "index.html"));
 
-  if (!isProd) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
+  if (hasDist) {
+    console.log("Serving pre-built production static files from dist...");
     app.use(express.static(distPath));
     app.use("/dmg-live-share", express.static(distPath));
 
@@ -672,9 +667,17 @@ async function start() {
     });
 
     app.get("*", (req, res) => {
-      if (req.path.startsWith("/api")) return;
+      if (req.path.startsWith("/api") || req.path.startsWith("/dmg-live-share/api")) return;
       res.sendFile(path.join(distPath, "index.html"));
     });
+  } else {
+    console.log("No pre-built dist found, starting with Vite middleware...");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+    app.use("/dmg-live-share", vite.middlewares);
   }
 
   server.listen(PORT, "0.0.0.0", () => {
