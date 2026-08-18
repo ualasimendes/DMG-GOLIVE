@@ -45,6 +45,11 @@ export function useWebRTC(
   const [isDeaf, setIsDeaf] = useState(false);
   const [hasCamera, setHasCamera] = useState(false);
   const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
+  const [activeYouTubeTrack, setActiveYouTubeTrack] = useState<{
+    videoId: string;
+    requestedBy: string;
+    isPlaying: boolean;
+  } | null>(null);
 
   // Quality & Audio settings
   const [streamQuality, setStreamQuality] = useState<StreamQuality>({
@@ -375,6 +380,20 @@ export function useWebRTC(
             break;
           }
 
+          case 'youtube-track-play': {
+            setActiveYouTubeTrack({
+              videoId: data.videoId,
+              requestedBy: data.requestedBy || 'DJ Bot',
+              isPlaying: true,
+            });
+            break;
+          }
+
+          case 'youtube-track-stop': {
+            setActiveYouTubeTrack(null);
+            break;
+          }
+
           case 'reaction-received': {
             break;
           }
@@ -650,6 +669,23 @@ export function useWebRTC(
     }
   }, [roomId]);
 
+  // Play YouTube Track via Command or UI
+  const playYouTubeTrack = useCallback(
+    (youtubeUrl: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        sendMessage(`!playmusic ${youtubeUrl}`);
+      }
+    },
+    [sendMessage]
+  );
+
+  // Stop YouTube Track
+  const stopYouTubeTrack = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      sendMessage('!stopmusic');
+    }
+  }, [sendMessage]);
+
   return {
     isConnected,
     users,
@@ -667,6 +703,9 @@ export function useWebRTC(
     setStreamQuality,
     audioSettings,
     setAudioSettings,
+    activeYouTubeTrack,
+    playYouTubeTrack,
+    stopYouTubeTrack,
     startMicrophone,
     toggleMute,
     toggleDeafen,

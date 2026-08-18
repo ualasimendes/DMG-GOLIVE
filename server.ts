@@ -378,7 +378,7 @@ wss.on("connection", (ws: WebSocket) => {
 
         case "chat-message": {
           if (!currentUser) return;
-          const text = (data.text || "").trim();
+          const text = (data.text || data.message?.text || "").trim();
           if (!text) return;
 
           const newMsg: ChatMessage = {
@@ -390,7 +390,7 @@ wss.on("connection", (ws: WebSocket) => {
             avatarColor: currentUser.avatarColor,
             text,
             timestamp: Date.now(),
-            type: data.messageType || "text",
+            type: data.messageType || data.message?.type || "text",
           };
 
           const roomLog = roomMessages.get(currentUser.roomId);
@@ -403,6 +403,99 @@ wss.on("connection", (ws: WebSocket) => {
             type: "chat-message",
             message: newMsg,
           });
+
+          // Check for YouTube DJ Bot Commands
+          if (text.startsWith("!")) {
+            const parts = text.split(/\s+/);
+            const cmd = parts[0].toLowerCase();
+            const arg = parts.slice(1).join(" ").trim();
+
+            if (["!playmusic", "!play", "!music", "!tocar"].includes(cmd)) {
+              // Extract YouTube Video ID
+              const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+              const match = arg.match(ytRegex);
+
+              if (match && match[1]) {
+                const videoId = match[1];
+                const botMsg: ChatMessage = {
+                  id: `bot-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "DJ YouTube Bot 🎵",
+                  avatarColor: "#ef4444",
+                  text: `🎵 Tocando agora no som da sala: https://youtu.be/${videoId} (solicitado por ${currentUser.name})`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+
+                roomLog?.push(botMsg);
+                broadcastToRoom(currentUser.roomId, {
+                  type: "chat-message",
+                  message: botMsg,
+                });
+
+                broadcastToRoom(currentUser.roomId, {
+                  type: "youtube-track-play",
+                  videoId,
+                  requestedBy: currentUser.name,
+                  originalUrl: arg,
+                  timestamp: Date.now(),
+                });
+              } else {
+                const errorBotMsg: ChatMessage = {
+                  id: `bot-err-${Date.now()}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "DJ YouTube Bot 🎵",
+                  avatarColor: "#ef4444",
+                  text: `⚠️ Link do YouTube inválido. Use: !playmusic https://www.youtube.com/watch?v=HVWvX6TujQA`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+                broadcastToRoom(currentUser.roomId, {
+                  type: "chat-message",
+                  message: errorBotMsg,
+                });
+              }
+            } else if (["!stopmusic", "!stop", "!parar", "!pause"].includes(cmd)) {
+              const stopBotMsg: ChatMessage = {
+                id: `bot-stop-${Date.now()}`,
+                roomId: currentUser.roomId,
+                senderId: "system",
+                senderName: "DJ YouTube Bot 🎵",
+                avatarColor: "#ef4444",
+                text: `⏹️ Música pausada por ${currentUser.name}.`,
+                timestamp: Date.now(),
+                type: "system",
+              };
+              roomLog?.push(stopBotMsg);
+              broadcastToRoom(currentUser.roomId, {
+                type: "chat-message",
+                message: stopBotMsg,
+              });
+
+              broadcastToRoom(currentUser.roomId, {
+                type: "youtube-track-stop",
+                requestedBy: currentUser.name,
+              });
+            } else if (["!ajuda", "!help", "!comandos"].includes(cmd)) {
+              const helpMsg: ChatMessage = {
+                id: `bot-help-${Date.now()}`,
+                roomId: currentUser.roomId,
+                senderId: "system",
+                senderName: "DJ YouTube Bot 🎵",
+                avatarColor: "#ef4444",
+                text: `💡 Comandos do DJ Bot: \n• !playmusic <link_youtube> (Toca música na sala)\n• !stopmusic (Pausa música)`,
+                timestamp: Date.now(),
+                type: "system",
+              };
+              broadcastToRoom(currentUser.roomId, {
+                type: "chat-message",
+                message: helpMsg,
+              });
+            }
+          }
+
           break;
         }
 

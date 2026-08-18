@@ -145,6 +145,8 @@ export default function App() {
     sendMessage,
     sendReaction,
     closeRoom,
+    activeYouTubeTrack,
+    stopYouTubeTrack,
   } = useWebRTC(
     currentView === 'room' && !!currentUser ? roomId : '',
     webrtcUser,
@@ -414,10 +416,12 @@ export default function App() {
               participants={participants}
               currentUserId={currentUser ? currentUser.id : ''}
               messages={messages}
+              activeYouTubeTrack={activeYouTubeTrack}
               onSendMessage={sendMessage}
               onSendReaction={sendReaction}
               onSelectStreamer={(id) => setActiveStreamerId(id)}
               onCloseRoom={handleCloseAndDestroyRoom}
+              onStopYouTubeTrack={stopYouTubeTrack}
             />
           </div>
 
