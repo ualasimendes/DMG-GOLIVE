@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Stage } from './components/Stage';
 import { ControlBar } from './components/ControlBar';
@@ -13,6 +13,27 @@ import { useWebRTC } from './hooks/useWebRTC';
 import { AuthUser, UserProfile } from './types';
 import { Check } from 'lucide-react';
 import { getApiBaseUrl } from './utils/api';
+
+// Dedicated Background Audio Player for each connected peer
+const RemoteAudioPlayer: React.FC<{ stream: MediaStream; isDeaf: boolean }> = ({ stream, isDeaf }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl || !stream) return;
+
+    audioEl.srcObject = stream;
+    audioEl.muted = isDeaf;
+    const playPromise = audioEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn('Audio play request notice:', err);
+      });
+    }
+  }, [stream, isDeaf]);
+
+  return <audio ref={audioRef} autoPlay playsInline muted={isDeaf} className="hidden" />;
+};
 
 export default function App() {
   // Navigation & Room State
@@ -160,19 +181,21 @@ export default function App() {
     }
   }, [currentView, isConnected, currentUser]);
 
-  // Transform remoteStreams into list of streamers
+  // Transform remoteStreams into list of streamers (Filter ONLY real video tracks)
   const allStreamers = useMemo(() => {
-    const list = Array.from(remoteStreams.values()).map((peer: any) => ({
-      id: peer.userId,
-      name: peer.userName,
-      avatar: peer.avatarUrl,
-      avatarColor: peer.avatarColor,
-      isStreaming: true,
-      stream: peer.stream,
-      gameTitle: 'Transmissão Ao Vivo',
-      viewers: 1,
-      isLocal: false,
-    }));
+    const list = Array.from(remoteStreams.values())
+      .filter((peer: any) => peer.stream && peer.stream.getVideoTracks().length > 0)
+      .map((peer: any) => ({
+        id: peer.userId,
+        name: peer.userName,
+        avatar: peer.avatarUrl,
+        avatarColor: peer.avatarColor,
+        isStreaming: true,
+        stream: peer.stream,
+        gameTitle: 'Transmissão Ao Vivo',
+        viewers: users.length,
+        isLocal: false,
+      }));
 
     if (isStreaming && localScreenStream && currentUser) {
       list.unshift({
@@ -347,6 +370,12 @@ export default function App() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Dedicated Background Audio Players for every connected remote peer */}
+      {currentView === 'room' &&
+        Array.from(remoteStreams.entries()).map(([peerId, peerData]) => (
+          <RemoteAudioPlayer key={peerId} stream={peerData.stream} isDeaf={isDeaf} />
+        ))}
 
       {currentView === 'landing' ? (
         <LandingView
