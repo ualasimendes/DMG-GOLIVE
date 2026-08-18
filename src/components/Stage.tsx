@@ -314,21 +314,23 @@ export const Stage: React.FC<StageProps> = ({
           </div>
 
           <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight mb-2">
-            Pronto para jogar?
+            Aguardando Transmissão
           </h2>
-          <p className="text-zinc-400 text-sm sm:text-base max-w-md font-sans mb-8 leading-relaxed">
-            Entre em uma sala e compartilhe sua tela com seus amigos.
+          <p className="text-zinc-400 text-sm sm:text-base max-w-md font-sans mb-6 leading-relaxed">
+            Nenhum participante está transmitindo no momento. Você está conectado à voz e ao chat da sala.
           </p>
 
-          {/* Primary Action Button: "Compartilhar tela" */}
-          <button
-            id="btn-stage-start-share"
-            onClick={onStartShare}
-            className="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm sm:text-base flex items-center gap-2.5 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/45 transition-all transform active:scale-95 group"
-          >
-            <Share2 className="w-5 h-5 text-indigo-200 group-hover:scale-110 transition-transform" />
-            <span>Compartilhar tela</span>
-          </button>
+          {/* Action Button for users who actually want to stream */}
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              id="btn-stage-start-share"
+              onClick={onStartShare}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all transform active:scale-95 cursor-pointer group"
+            >
+              <Share2 className="w-4 h-4 text-indigo-400 group-hover:text-white transition-colors" />
+              <span>Quero transmitir minha tela</span>
+            </button>
+          </div>
         </div>
       )}
     </main>

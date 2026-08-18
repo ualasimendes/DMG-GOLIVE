@@ -10,6 +10,7 @@ import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
 import { TermsModal } from './components/TermsModal';
 import { StartStreamModal } from './components/StartStreamModal';
+import { JoinChoiceModal } from './components/JoinChoiceModal';
 import { useWebRTC } from './hooks/useWebRTC';
 import { AuthUser, UserProfile, StreamQuality } from './types';
 import { Check } from 'lucide-react';
@@ -66,6 +67,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'room'>('landing');
   const [roomId, setRoomId] = useState<string>('');
   const [roomName, setRoomName] = useState<string>('');
+  const [pendingRoom, setPendingRoom] = useState<{ id: string; name: string } | null>(null);
   const [activeStreamerId, setActiveStreamerId] = useState<string | null>(null);
 
   // Modals state
@@ -74,6 +76,7 @@ export default function App() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isStartStreamModalOpen, setIsStartStreamModalOpen] = useState<boolean>(false);
+  const [isJoinChoiceModalOpen, setIsJoinChoiceModalOpen] = useState<boolean>(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -148,12 +151,13 @@ export default function App() {
             return;
           }
 
-          setRoomId(data.id || cleanId);
-          setRoomName(data.name || cleanId.replace(/-/g, ' ').toUpperCase());
+          const rId = data.id || cleanId;
+          const rName = data.name || cleanId.replace(/-/g, ' ').toUpperCase();
+          setPendingRoom({ id: rId, name: rName });
 
           const token = localStorage.getItem('dmg_auth_token');
           if (token && !token.startsWith('guest_')) {
-            setCurrentView('room');
+            setIsJoinChoiceModalOpen(true);
           } else {
             setIsAuthModalOpen(true);
             showToast('Faça login com sua Conta Google para acessar a sala.');
@@ -161,8 +165,9 @@ export default function App() {
         })
         .catch(() => {
           // If network failed, attempt to connect directly
-          setRoomId(cleanId);
-          setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
+          const rName = cleanId.replace(/-/g, ' ').toUpperCase();
+          setPendingRoom({ id: cleanId, name: rName });
+          setIsJoinChoiceModalOpen(true);
         });
     }
   }, []);
@@ -332,16 +337,42 @@ export default function App() {
     return me?.role || 'member';
   }, [currentUser, participants]);
 
-  // Handler for joining room from Landing page
+  // Handler for joining room from Landing page or URL link
   const handleJoinRoom = (targetRoomId: string, targetRoomName?: string) => {
     const cleanId = targetRoomId.toLowerCase().trim().replace(/\s+/g, '-');
-    setRoomId(cleanId);
-    setRoomName(targetRoomName || cleanId.replace(/-/g, ' ').toUpperCase());
+    const name = targetRoomName || cleanId.replace(/-/g, ' ').toUpperCase();
+    setPendingRoom({ id: cleanId, name });
+    setIsJoinChoiceModalOpen(true);
+  };
+
+  const handleSelectWatchOnly = () => {
+    if (!pendingRoom) return;
+    setRoomId(pendingRoom.id);
+    setRoomName(pendingRoom.name);
     setCurrentView('room');
+    setIsJoinChoiceModalOpen(false);
 
     const url = new URL(window.location.href);
-    url.searchParams.set('room', cleanId);
+    url.searchParams.set('room', pendingRoom.id);
     window.history.pushState({}, '', url.toString());
+
+    showToast(`Você entrou em ${pendingRoom.name} como espectador.`);
+  };
+
+  const handleSelectStream = () => {
+    if (!pendingRoom) return;
+    setRoomId(pendingRoom.id);
+    setRoomName(pendingRoom.name);
+    setCurrentView('room');
+    setIsJoinChoiceModalOpen(false);
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', pendingRoom.id);
+    window.history.pushState({}, '', url.toString());
+
+    setTimeout(() => {
+      setIsStartStreamModalOpen(true);
+    }, 250);
   };
 
   const handleJoinByCode = (code: string) => {
@@ -560,6 +591,9 @@ export default function App() {
         onAuthSuccess={(user) => {
           setCurrentUser(user);
           showToast(`Bem-vindo, ${user.displayName || user.username}!`);
+          if (pendingRoom) {
+            setIsJoinChoiceModalOpen(true);
+          }
         }}
       />
 
@@ -598,6 +632,18 @@ export default function App() {
         onClose={() => setIsStartStreamModalOpen(false)}
         currentQuality={streamQuality}
         onStart={handleConfirmStartStream}
+      />
+
+      <JoinChoiceModal
+        isOpen={isJoinChoiceModalOpen}
+        onClose={() => {
+          setIsJoinChoiceModalOpen(false);
+          setPendingRoom(null);
+        }}
+        roomId={pendingRoom?.id || ''}
+        roomName={pendingRoom?.name || ''}
+        onSelectWatchOnly={handleSelectWatchOnly}
+        onSelectStream={handleSelectStream}
       />
 
       <TermsModal
