@@ -92,6 +92,7 @@ export interface RoomData {
 export interface PublicRoomInfo {
   id: string;
   name: string;
+  isPermanent?: boolean;
   userCount: number;
   streamingCount: number;
   host?: {

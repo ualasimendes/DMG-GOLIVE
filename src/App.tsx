@@ -100,22 +100,42 @@ export default function App() {
     }
   }, []);
 
-  // Read URL query on mount (?room=xyz)
+  // Read URL query on mount (?room=xyz) and validate existence
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam) {
       const cleanId = roomParam.toLowerCase().trim().replace(/\s+/g, '-');
-      setRoomId(cleanId);
-      setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
+      const apiBase = getApiBaseUrl();
 
-      const token = localStorage.getItem('dmg_auth_token');
-      if (token && !token.startsWith('guest_')) {
-        setCurrentView('room');
-      } else {
-        setIsAuthModalOpen(true);
-        showToast('Faça login com sua Conta Google para acessar a sala.');
-      }
+      fetch(`${apiBase}/room/${cleanId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data || !data.exists) {
+            showToast('⚠️ Esta sala não existe ou já foi encerrada.');
+            const url = new URL(window.location.href);
+            url.searchParams.delete('room');
+            window.history.pushState({}, '', url.toString());
+            setCurrentView('landing');
+            return;
+          }
+
+          setRoomId(data.id || cleanId);
+          setRoomName(data.name || cleanId.replace(/-/g, ' ').toUpperCase());
+
+          const token = localStorage.getItem('dmg_auth_token');
+          if (token && !token.startsWith('guest_')) {
+            setCurrentView('room');
+          } else {
+            setIsAuthModalOpen(true);
+            showToast('Faça login com sua Conta Google para acessar a sala.');
+          }
+        })
+        .catch(() => {
+          // If network failed, attempt to connect directly
+          setRoomId(cleanId);
+          setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
+        });
     }
   }, []);
 
@@ -496,6 +516,7 @@ export default function App() {
       <CreateRoomModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        currentUser={currentUser}
         onCreateAndJoin={handleCreateAndJoin}
       />
 

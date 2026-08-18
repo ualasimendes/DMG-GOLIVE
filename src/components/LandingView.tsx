@@ -16,6 +16,7 @@ import {
   Gamepad2,
   Crown,
   Sparkles,
+  Flame,
 } from 'lucide-react';
 import { AuthUser, PublicRoomInfo } from '../types';
 import { WalaceLogo } from './WalaceLogo';
@@ -174,7 +175,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             Compartilhe sua gameplay e assista juntos.
           </h1>
           <p className="text-zinc-400 text-sm sm:text-base mt-2 font-sans max-w-md leading-relaxed">
-            Transmissão de tela em tempo real em 1080p 60 FPS com áudio estéreo cristalino para você e seus amigos.
+            Transmissão de tela em tempo real em 1080p 60 FPS com áudio estéreo e moderação de salas para a galera.
           </p>
         </div>
 
@@ -183,7 +184,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
           <div className="text-xs space-y-1 flex-1">
             <div className="font-bold text-red-300 flex items-center justify-between">
-              <span>Diretrizes de Segurança & Convivência</span>
+              <span>Diretrizes de Segurança & Moderação</span>
               <button
                 type="button"
                 onClick={onOpenTermsModal}
@@ -193,7 +194,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </button>
             </div>
             <p className="text-zinc-400 text-[11px] leading-relaxed">
-              É terminantemente proibido conteúdo sexual, violência, ódio ou infrações aos direitos humanos. Violações acarretam em <strong>banimento permanente</strong>.
+              É terminantemente proibido conteúdo sexual, violência ou discurso de ódio. Use <code>!help</code> no chat para comandos de moderação e música.
             </p>
           </div>
         </div>
@@ -241,7 +242,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                         Não conectado
                       </div>
                       <div className="text-[10px] text-zinc-500">
-                        Faça login para criar salas
+                        Faça login para criar sua sala
                       </div>
                     </div>
                   </div>
@@ -272,7 +273,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-98 cursor-pointer"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Criar Nova Sala</span>
+                <span>Criar Minha Sala</span>
               </button>
             </div>
 
@@ -281,7 +282,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <div className="flex items-center gap-3 my-3">
                 <div className="h-px bg-zinc-800 flex-1" />
                 <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
-                  ou entrar por código
+                  ou entrar por link/código
                 </span>
                 <div className="h-px bg-zinc-800 flex-1" />
               </div>
@@ -293,7 +294,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   type="text"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="Ex: room-0001"
+                  placeholder="Ex: dmg-premium"
                   className="flex-1 bg-[#141724] border border-[#22283c] rounded-xl px-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                 />
                 <button
@@ -323,33 +324,33 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   </h3>
                 </div>
                 <span className="text-[11px] text-zinc-400 font-mono">
-                  {publicRooms.length} {publicRooms.length === 1 ? 'sala aberta' : 'salas abertas'}
+                  {publicRooms.length} {publicRooms.length === 1 ? 'sala ativa' : 'salas ativas'}
                 </span>
               </div>
 
               {/* Public Rooms Grid / List */}
-              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 no-scrollbar">
-                {publicRooms.length === 0 ? (
-                  <div className="py-8 flex flex-col items-center justify-center text-center text-zinc-500 space-y-2">
-                    <Radio className="w-8 h-8 opacity-30 animate-pulse text-indigo-400" />
-                    <p className="text-xs font-medium text-zinc-400">
-                      Nenhuma sala pública aberta no momento.
-                    </p>
-                    <p className="text-[11px] text-zinc-500 max-w-xs">
-                      Clique em <strong>"Criar Nova Sala"</strong> e seja o primeiro anfitrião a transmitir!
-                    </p>
-                  </div>
-                ) : (
-                  publicRooms.map((room) => (
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 no-scrollbar">
+                {publicRooms.map((room) => {
+                  const isPremium = room.isPermanent || room.id === 'dmg-premium';
+
+                  return (
                     <div
                       key={room.id}
-                      className="p-3 bg-[#131626] hover:bg-[#181c30] border border-[#212740] hover:border-indigo-500/50 rounded-xl flex items-center justify-between gap-3 transition-all group"
+                      className={`p-3 rounded-xl flex items-center justify-between gap-3 transition-all border ${
+                        isPremium
+                          ? 'bg-gradient-to-r from-purple-950/40 via-[#18122a] to-[#121626] border-purple-500/50 hover:border-purple-400 shadow-lg shadow-purple-950/30'
+                          : 'bg-[#131626] hover:bg-[#181c30] border-[#212740] hover:border-indigo-500/50'
+                      }`}
                     >
                       {/* Room & Host Details */}
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Host Avatar with Crown */}
                         <div className="relative shrink-0">
-                          {room.host?.avatar ? (
+                          {isPremium ? (
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-amber-500 flex items-center justify-center text-white text-sm font-black shadow-md border border-purple-300">
+                              👑
+                            </div>
+                          ) : room.host?.avatar ? (
                             <img
                               src={room.host.avatar}
                               alt={room.host.name}
@@ -363,30 +364,37 @@ export const LandingView: React.FC<LandingViewProps> = ({
                               {(room.host?.name || 'Gamer').slice(0, 2).toUpperCase()}
                             </div>
                           )}
-                          <span
-                            className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] shadow"
-                            title={`Dono da Sala: ${room.host?.name || 'Anfitrião'}`}
-                          >
-                            👑
-                          </span>
+                          {!isPremium && (
+                            <span
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] shadow"
+                              title={`Dono da Sala: ${room.host?.name || 'Anfitrião'}`}
+                            >
+                              👑
+                            </span>
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-zinc-100 truncate font-mono">
-                              {room.name || room.id}
+                            <span className={`font-bold text-xs truncate font-mono ${isPremium ? 'text-purple-200 flex items-center gap-1' : 'text-zinc-100'}`}>
+                              {isPremium && <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />}
+                              <span>{room.name || room.id}</span>
                             </span>
 
-                            {room.streamingCount > 0 && (
+                            {isPremium ? (
+                              <span className="px-1.5 py-0.2 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[9px] font-bold tracking-wider uppercase shrink-0">
+                                OFICIAL 24/7
+                              </span>
+                            ) : room.streamingCount > 0 ? (
                               <span className="px-1.5 py-0.2 rounded bg-red-500/20 border border-red-500/40 text-red-400 text-[9px] font-bold tracking-wider uppercase shrink-0">
                                 ● AO VIVO
                               </span>
-                            )}
+                            ) : null}
                           </div>
 
                           <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5 truncate">
                             <span>
-                              Dono: <strong className="text-zinc-200">{room.host?.name || 'Anfitrião'}</strong>
+                              {isPremium ? 'Sala Oficial da Comunidade' : `Dono: ${room.host?.name || 'Anfitrião'}`}
                             </span>
                             <span>•</span>
                             <span className="text-indigo-300 font-medium">
@@ -399,15 +407,19 @@ export const LandingView: React.FC<LandingViewProps> = ({
                       {/* 1-Click Join Button */}
                       <button
                         onClick={() => handleQuickJoin(room.id)}
-                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all active:scale-95 cursor-pointer shrink-0"
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer shrink-0 ${
+                          isPremium
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/30'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
+                        }`}
                         title={`Entrar com 1 clique em ${room.name}`}
                       >
                         <span>Entrar</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </div>
 
@@ -429,14 +441,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
           <div className="bg-[#0e101c] border border-[#1b2034] rounded-xl p-3 flex flex-col items-center gap-1.5 shadow-sm">
             <Volume2 className="w-4 h-4 text-emerald-400" />
-            <span className="text-[11px] font-bold text-zinc-200">Som Estéreo</span>
-            <span className="text-[10px] text-zinc-400">Áudio do jogo & DJ Bot</span>
+            <span className="text-[11px] font-bold text-zinc-200">Som Estéreo & DJ</span>
+            <span className="text-[10px] text-zinc-400">YouTube DJ Bot (!playmusic)</span>
           </div>
 
           <div className="bg-[#0e101c] border border-[#1b2034] rounded-xl p-3 flex flex-col items-center gap-1.5 shadow-sm">
-            <Zap className="w-4 h-4 text-amber-400" />
-            <span className="text-[11px] font-bold text-zinc-200">Sem Delay</span>
-            <span className="text-[10px] text-zinc-400">WebRTC P2P</span>
+            <Crown className="w-4 h-4 text-amber-400" />
+            <span className="text-[11px] font-bold text-zinc-200">Moderação Total</span>
+            <span className="text-[10px] text-zinc-400">Comandos !help</span>
           </div>
         </div>
       </main>
