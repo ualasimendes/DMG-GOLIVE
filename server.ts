@@ -418,6 +418,19 @@ wss.on("connection", (ws: WebSocket) => {
           break;
         }
 
+        case "close-room":
+        case "delete-room": {
+          if (!currentUser) return;
+          const targetRoomId = data.roomId || currentUser.roomId;
+          broadcastToRoom(targetRoomId, {
+            type: "room-closed",
+            message: "A sala foi encerrada e excluída.",
+          });
+          rooms.delete(targetRoomId);
+          roomMessages.delete(targetRoomId);
+          break;
+        }
+
         case "ping": {
           ws.send(JSON.stringify({ type: "pong", clientTimestamp: data.timestamp, serverTimestamp: Date.now() }));
           break;

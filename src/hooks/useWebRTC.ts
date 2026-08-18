@@ -22,7 +22,14 @@ export interface WebRTCUserProps {
   avatarColor: string;
 }
 
-export function useWebRTC(roomId: string, user: WebRTCUserProps) {
+export function useWebRTC(
+  roomId: string,
+  user: WebRTCUserProps,
+  onRoomClosed?: (reason: string) => void
+) {
+  const onRoomClosedRef = useRef(onRoomClosed);
+  onRoomClosedRef.current = onRoomClosed;
+
   const [isConnected, setIsConnected] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -372,6 +379,14 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
             break;
           }
 
+          case 'room-closed': {
+            // Room was closed by host
+            if (onRoomClosedRef.current) {
+              onRoomClosedRef.current(data.message || 'A sala foi encerrada pelo anfitrião.');
+            }
+            break;
+          }
+
           case 'signal': {
             handleSignalingData(data.senderId, data.signalData);
             break;
@@ -623,6 +638,18 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
     );
   }, []);
 
+  // Close / Delete entire room for all participants
+  const closeRoom = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && roomId) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'close-room',
+          roomId,
+        })
+      );
+    }
+  }, [roomId]);
+
   return {
     isConnected,
     users,
@@ -647,5 +674,6 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
     stopScreenShare,
     sendMessage,
     sendReaction,
+    closeRoom,
   };
 }

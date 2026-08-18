@@ -14,6 +14,8 @@ import {
   Skull,
   Popcorn,
   Share2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { UserProfile, ChatMessage } from '../types';
 import { getShareableRoomUrl } from '../utils/api';
@@ -28,6 +30,7 @@ interface RightPanelProps {
   onSendMessage: (text: string) => void;
   onSendReaction: (emoji: string) => void;
   onSelectStreamer: (streamerId: string) => void;
+  onCloseRoom?: () => void;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -39,10 +42,12 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   onSendMessage,
   onSendReaction,
   onSelectStreamer,
+  onCloseRoom,
 }) => {
   const [copied, setCopied] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'participants' | 'chat'>('participants');
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const shareUrl = getShareableRoomUrl(roomId);
 
@@ -50,6 +55,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     navigator.clipboard.writeText(shareUrl).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmDelete(false);
+    if (onCloseRoom) onCloseRoom();
   };
 
   const handleSend = (e: React.FormEvent) => {
@@ -81,14 +91,54 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Sala:
             </span>
-            <span className="text-sm font-bold text-zinc-100 truncate">
+            <span className="text-sm font-bold text-zinc-100 truncate font-mono">
               {roomName}
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] font-mono font-medium shrink-0">
-            {participants.length} {participants.length === 1 ? 'amigo' : 'amigos'}
-          </span>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] font-mono font-medium">
+              {participants.length} {participants.length === 1 ? 'amigo' : 'amigos'}
+            </span>
+
+            {onCloseRoom && (
+              <button
+                onClick={() => setShowConfirmDelete(true)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-800/50 transition-colors cursor-pointer"
+                title="Excluir / Fechar Sala para todos"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Confirmation Banner for Deleting Room */}
+        {showConfirmDelete && (
+          <div className="mb-2 p-2.5 bg-red-950/70 border border-red-800/80 rounded-xl text-left space-y-2 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-1.5 text-red-300 text-xs font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <span>Deseja encerrar e excluir a sala?</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              Todos os participantes serão desconectados e a sala deixará de existir.
+            </p>
+            <div className="flex gap-1.5 pt-0.5">
+              <button
+                onClick={() => setShowConfirmDelete(false)}
+                className="flex-1 py-1 px-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmClose}
+                className="flex-1 py-1 px-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold shadow-md shadow-red-600/30"
+              >
+                Excluir Sala
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Quick Link Share Bar */}
         <div className="flex items-center gap-1.5 bg-[#141624] rounded-lg p-1.5 border border-[#21263c]">

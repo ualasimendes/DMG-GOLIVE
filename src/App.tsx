@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Stage } from './components/Stage';
 import { ControlBar } from './components/ControlBar';
@@ -108,6 +108,19 @@ export default function App() {
     [currentUser]
   );
 
+  const handleRoomClosedByHost = useCallback((reason: string) => {
+    setRoomId('');
+    setRoomName('');
+    setActiveStreamerId(null);
+    setCurrentView('landing');
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url.toString());
+
+    showToast(reason || 'A sala foi encerrada e excluída.');
+  }, []);
+
   // WebRTC Real-Time Signaling Hook
   const {
     isConnected,
@@ -131,7 +144,12 @@ export default function App() {
     stopScreenShare,
     sendMessage,
     sendReaction,
-  } = useWebRTC(currentView === 'room' && !!currentUser ? roomId : '', webrtcUser);
+    closeRoom,
+  } = useWebRTC(
+    currentView === 'room' && !!currentUser ? roomId : '',
+    webrtcUser,
+    handleRoomClosedByHost
+  );
 
   // Automatically start microphone when joining room
   useEffect(() => {
@@ -258,6 +276,21 @@ export default function App() {
     window.history.pushState({}, '', url.toString());
   };
 
+  const handleCloseAndDestroyRoom = () => {
+    closeRoom();
+    stopScreenShare();
+    setRoomId('');
+    setRoomName('');
+    setActiveStreamerId(null);
+    setCurrentView('landing');
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url.toString());
+
+    showToast('Você encerrou e excluiu a sala.');
+  };
+
   const handleToggleScreenShare = async () => {
     if (isStreaming) {
       stopScreenShare();
@@ -357,6 +390,7 @@ export default function App() {
               onOpenSettings={() => setIsSettingsModalOpen(true)}
               onOpenProfile={() => (!currentUser ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true))}
               onLeaveRoom={handleLeaveRoom}
+              onCloseRoom={handleCloseAndDestroyRoom}
             />
 
             {/* 2. Área Central (Stage / Compartilhamento de Tela) */}
@@ -383,6 +417,7 @@ export default function App() {
               onSendMessage={sendMessage}
               onSendReaction={sendReaction}
               onSelectStreamer={(id) => setActiveStreamerId(id)}
+              onCloseRoom={handleCloseAndDestroyRoom}
             />
           </div>
 
