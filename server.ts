@@ -251,9 +251,8 @@ function getUserRole(roomId: string, userId: string, email?: string): "admin1" |
   if (email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())) return "admin1";
   const roles = roomAdminRoles.get(roomId);
   if (roles && roles.has(userId)) return roles.get(userId)!;
-  // If first participant / room creator
-  const roomUsers = rooms.get(roomId);
-  if (roomUsers && Array.from(roomUsers.keys())[0] === userId) return "admin1";
+  // In DMG#PREMIUM, regular users are strictly 'member' unless explicitly promoted
+  if (roomId === PERMANENT_ROOM_ID) return "member";
   return "member";
 }
 

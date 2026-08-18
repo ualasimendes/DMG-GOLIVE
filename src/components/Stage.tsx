@@ -50,22 +50,28 @@ export const Stage: React.FC<StageProps> = ({
 
   const isMe = streamer?.id === currentUserId;
   const remoteStreamData = streamer && !isMe ? remoteStreams.get(streamer.id) : null;
-  const activeMediaStream = isMe ? localStream : remoteStreamData?.stream || null;
+  const activeMediaStream = isMe ? localStream : (remoteStreamData?.stream || (streamer as any)?.stream || null);
+  const hasVideoTrack = !!(activeMediaStream && activeMediaStream.getVideoTracks().length > 0);
 
   // Bind active media stream to video element
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
 
-    if (activeMediaStream) {
+    if (activeMediaStream && hasVideoTrack) {
       videoEl.srcObject = activeMediaStream;
-      videoEl.play().catch((e) => {
-        console.log('Video autoplay interrupted or requires interaction:', e);
-      });
+      const playPromise = videoEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.log('Autoplay requires muted state on initial frame:', e);
+          videoEl.muted = true;
+          videoEl.play().catch((err) => console.warn('Secondary play warning:', err));
+        });
+      }
     } else {
       videoEl.srcObject = null;
     }
-  }, [activeMediaStream, streamer?.id]);
+  }, [activeMediaStream, streamer?.id, hasVideoTrack]);
 
   // Adjust volume & mute for remote streams
   useEffect(() => {
@@ -239,7 +245,7 @@ export const Stage: React.FC<StageProps> = ({
               className="w-full h-full object-contain bg-black"
             />
 
-            {!activeMediaStream && (
+            {(!activeMediaStream || !hasVideoTrack) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center z-10 bg-[#0c0e17]">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-xl animate-pulse"

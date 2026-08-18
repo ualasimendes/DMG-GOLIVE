@@ -232,6 +232,24 @@ export default function App() {
       });
     }
 
+    // Also include any user in the room marked as streaming so the stage immediately tracks them
+    users.forEach((u) => {
+      if (u.isStreaming && u.id !== currentUser?.id && !list.some((s) => s.id === u.id)) {
+        const rData = remoteStreams.get(u.id);
+        list.push({
+          id: u.id,
+          name: u.name,
+          avatar: u.avatar,
+          avatarColor: u.avatarColor,
+          isStreaming: true,
+          stream: rData?.stream || null as any,
+          gameTitle: u.streamTitle || 'Transmissão Ao Vivo',
+          viewers: users.length,
+          isLocal: false,
+        });
+      }
+    });
+
     return list;
   }, [remoteStreams, isStreaming, localScreenStream, currentUser, users]);
 
@@ -252,7 +270,7 @@ export default function App() {
       name: u.name,
       avatar: u.avatar,
       avatarColor: u.avatarColor,
-      role: u.role || (u.email === 'lacee.mds@gmail.com' ? 'admin1' : u.id === users[0]?.id ? 'admin1' : 'member'),
+      role: u.role || (u.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(u.email.toLowerCase()) ? 'admin1' : 'member'),
       status: 'online',
       isStreaming: u.isStreaming,
       isSpeaking: u.isSpeaking,
@@ -269,7 +287,7 @@ export default function App() {
         meInList.isSpeaking = isLocalSpeaking;
         meInList.isMuted = isMuted;
         meInList.isDeaf = isDeaf;
-        if (currentUser.email === 'lacee.mds@gmail.com' || currentUser.email === 'walac@walacemendes.com') {
+        if (currentUser.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(currentUser.email.toLowerCase())) {
           meInList.role = 'admin1';
         }
       }
