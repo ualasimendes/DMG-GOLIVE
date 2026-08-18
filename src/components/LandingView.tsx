@@ -42,15 +42,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const [joinCode, setJoinCode] = useState('');
   const [publicRooms, setPublicRooms] = useState<PublicRoomInfo[]>([]);
-  const [topUsers, setTopUsers] = useState<CommunityTopUser[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
 
   const isLoggedIn = !!currentUser;
 
-  // Poll active public rooms & top users every 3.5s
+  // Poll active public rooms every 3.5s
   useEffect(() => {
     let isMounted = true;
-    const fetchRoomsAndUsers = () => {
+    const fetchRooms = () => {
       const apiBase = getApiBaseUrl();
       fetch(`${apiBase}/rooms`)
         .then((res) => (res.ok ? res.json() : null))
@@ -63,19 +62,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
         .catch(() => {
           if (isMounted) setLoadingRooms(false);
         });
-
-      fetch(`${apiBase}/community/top-users`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (isMounted && data && Array.isArray(data.topUsers)) {
-            setTopUsers(data.topUsers);
-          }
-        })
-        .catch(() => {});
     };
 
-    fetchRoomsAndUsers();
-    const interval = setInterval(fetchRoomsAndUsers, 3500);
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 3500);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -432,128 +422,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <div className="pt-2 border-t border-[#1b2034] flex items-center justify-between text-[11px] text-zinc-500">
               <span>Transmissão WebRTC P2P de Baixa Latência</span>
               <span className="text-emerald-400 font-mono">● Sistema Online</span>
-            </div>
-          </div>
-
-          {/* 4. Card de Principais Usuários & Ranking da Comunidade DMG */}
-          <div className="bg-[#0e101c] border border-[#1b2034] rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/40 text-left space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🏆</span>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-zinc-100 uppercase tracking-wide">
-                    Principais Usuários — Ranking DMG
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    Membros mais ativos, administradores e tempo acumulado na plataforma
-                  </p>
-                </div>
-              </div>
-
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-bold tracking-wider uppercase flex items-center gap-1">
-                <Flame className="w-3 h-3 text-amber-400" />
-                <span>Top Atividade</span>
-              </span>
-            </div>
-
-            {/* Users Ranking Grid / List */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-              {topUsers.map((user, idx) => {
-                const isFirst = idx === 0;
-                const isSecond = idx === 1;
-                const isThird = idx === 2;
-
-                const medal = isFirst ? '🥇' : isSecond ? '🥈' : isThird ? '🥉' : `#${idx + 1}`;
-
-                return (
-                  <div
-                    key={user.id}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                      user.roleType === 'admin1'
-                        ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50'
-                        : user.roleType === 'admin2'
-                        ? 'bg-indigo-950/20 border-indigo-500/30 hover:border-indigo-500/50'
-                        : 'bg-[#111320] border-[#1b2034] hover:border-[#2a3148]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xs font-black font-mono w-5 text-center shrink-0">
-                        {medal}
-                      </span>
-
-                      {/* Avatar with Status Dot */}
-                      <div className="relative shrink-0">
-                        {user.avatarUrl ? (
-                          <img
-                            src={user.avatarUrl}
-                            alt={user.name}
-                            className={`w-8 h-8 rounded-full object-cover border border-zinc-700 ${
-                              user.isOnline ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
-                            }`}
-                          />
-                        ) : (
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow ${
-                              user.isOnline ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
-                            }`}
-                            style={{ backgroundColor: user.avatarColor || '#6366f1' }}
-                          >
-                            {user.name.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-
-                        <span
-                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#0e101c] ${
-                            user.isOnline ? 'bg-emerald-500' : 'bg-zinc-500'
-                          }`}
-                          title={user.isOnline ? 'Online na sala' : 'Offline'}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-xs text-zinc-200 truncate">
-                            {user.name}
-                          </span>
-
-                          {/* Role Tag */}
-                          {user.roleType === 'admin1' && (
-                            <span className="px-1.5 py-0.2 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[9px] font-black tracking-wider uppercase shadow-xs">
-                              👑 ADMIN 1
-                            </span>
-                          )}
-                          {user.roleType === 'admin2' && (
-                            <span className="px-1.5 py-0.2 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[9px] font-bold tracking-wider uppercase shadow-xs">
-                              🛡️ ADMIN 2
-                            </span>
-                          )}
-                          {user.roleType === 'member' && (
-                            <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold tracking-wider uppercase">
-                              🌟 MEMBRO DMG
-                            </span>
-                          )}
-                          {user.roleType === 'guest' && (
-                            <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 text-[9px] font-medium tracking-wider uppercase">
-                              👤 CONVIDADO
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-[10px] text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                          <span className="text-amber-400 font-semibold flex items-center gap-0.5">
-                            <Flame className="w-2.5 h-2.5 text-amber-400" />
-                            {user.activeHours}h ativas
-                          </span>
-                          <span>•</span>
-                          <span className={user.isOnline ? 'text-emerald-400' : 'text-zinc-500'}>
-                            {user.isOnline ? '🟢 Conectado' : '⚪ Offline'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
