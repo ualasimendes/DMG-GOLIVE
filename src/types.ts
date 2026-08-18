@@ -16,6 +16,7 @@ export interface UserProfile {
   name: string;
   avatar?: string;
   avatarColor?: string;
+  role?: 'admin1' | 'admin2' | 'member';
   status: 'online' | 'idle' | 'dnd' | 'offline';
   isHost?: boolean;
   isStreaming?: boolean;
@@ -75,6 +76,7 @@ export interface ChatMessage {
   senderName: string;
   senderAvatar?: string;
   avatarColor?: string;
+  senderRole?: 'admin1' | 'admin2' | 'member';
   text: string;
   timestamp: number | string;
   type?: 'text' | 'system' | 'reaction';

@@ -21,6 +21,8 @@ export interface WebRTCUserProps {
   name: string;
   avatar?: string;
   avatarColor: string;
+  email?: string;
+  role?: 'admin1' | 'admin2' | 'member';
 }
 
 export function useWebRTC(
@@ -333,6 +335,7 @@ export function useWebRTC(
           name: currentUser.name,
           avatar: currentUser.avatar,
           avatarColor: currentUser.avatarColor,
+          email: currentUser.email,
         })
       );
     };

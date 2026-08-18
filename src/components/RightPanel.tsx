@@ -4,21 +4,21 @@ import {
   Copy,
   Check,
   Send,
-  Radio,
   Gamepad2,
   MicOff,
-  Sparkles,
   MessageSquare,
-  Flame,
-  Laugh,
-  Skull,
-  Popcorn,
-  Share2,
   Trash2,
   AlertTriangle,
   Music,
-  Plus,
   X,
+  Volume2,
+  VolumeX,
+  Shield,
+  Crown,
+  Ban,
+  UserX,
+  Clock,
+  MoreVertical,
 } from 'lucide-react';
 import { UserProfile, ChatMessage } from '../types';
 import { getShareableRoomUrl } from '../utils/api';
@@ -30,6 +30,7 @@ interface RightPanelProps {
   roomId: string;
   participants: UserProfile[];
   currentUserId: string;
+  currentUserRole?: 'admin1' | 'admin2' | 'member';
   messages: ChatMessage[];
   activeYouTubeTrack?: {
     videoId: string;
@@ -48,6 +49,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   roomId,
   participants,
   currentUserId,
+  currentUserRole = 'member',
   messages,
   activeYouTubeTrack,
   onSendMessage,
@@ -62,9 +64,15 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showMusicPrompt, setShowMusicPrompt] = useState(false);
   const [musicUrlInput, setMusicUrlInput] = useState('');
+  const [userVolumes, setUserVolumes] = useState<Record<string, number>>({});
+  const [selectedUserActionMenu, setSelectedUserActionMenu] = useState<string | null>(null);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const shareUrl = getShareableRoomUrl(roomId);
+
+  const isCallerAdmin1 = currentUserRole === 'admin1';
+  const isCallerAdmin2 = currentUserRole === 'admin2';
+  const isCallerAdmin = isCallerAdmin1 || isCallerAdmin2;
 
   // Auto-scroll chat on new message
   useEffect(() => {
@@ -109,10 +117,14 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     });
   };
 
+  const handleVolumeChange = (userId: string, val: number) => {
+    setUserVolumes((prev) => ({ ...prev, [userId]: val }));
+  };
+
   return (
     <aside
       id="walace-right-panel"
-      className="w-72 lg:w-80 bg-[#0c0d16] border-l border-[#1b1e2a] flex flex-col h-full shrink-0 select-none z-10"
+      className="w-72 lg:w-84 bg-[#0c0d16] border-l border-[#1b1e2a] flex flex-col h-full shrink-0 select-none z-10 font-roboto"
     >
       {/* Header with Room Info */}
       <div className="p-3.5 border-b border-[#1b1e2a] bg-[#0e101b]">
@@ -127,11 +139,20 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] font-mono font-medium">
-              {participants.length} {participants.length === 1 ? 'amigo' : 'amigos'}
-            </span>
+            {isCallerAdmin1 && (
+              <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[10px] font-black tracking-wider uppercase shadow-sm flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                ADMIN 1
+              </span>
+            )}
+            {isCallerAdmin2 && (
+              <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-bold tracking-wider uppercase shadow-sm flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                ADMIN 2
+              </span>
+            )}
 
-            {onCloseRoom && (
+            {isCallerAdmin1 && onCloseRoom && (
               <button
                 onClick={() => setShowConfirmDelete(true)}
                 className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-800/50 transition-colors cursor-pointer"
@@ -222,100 +243,240 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Participantes ({participants.length})</span>
+          <span>Membros ({participants.length})</span>
         </button>
       </div>
 
       {/* Tab Contents */}
       {activeTab === 'participants' ? (
         /* Participants List */
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-          <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider px-2 py-1">
-            Conectados agora
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider px-2 py-0.5 flex items-center justify-between">
+            <span>Conectados Agora</span>
+            <span>Volume & Moderação</span>
           </div>
 
           {participants.map((user) => {
             const isMe = user.id === currentUserId;
             const isStreaming = user.isStreaming;
+            const userRole = user.role || 'member';
+            const userVol = userVolumes[user.id] !== undefined ? userVolumes[user.id] : 100;
+            const isTargetAdmin1 = userRole === 'admin1';
+            const isTargetAdmin2 = userRole === 'admin2';
 
             return (
               <div
                 key={user.id}
-                onClick={() => isStreaming && onSelectStreamer(user.id)}
-                className={`flex items-center justify-between p-2 rounded-xl border transition-all ${
+                className={`p-2.5 rounded-xl border transition-all space-y-2 ${
                   isStreaming
-                    ? 'bg-indigo-950/30 border-indigo-500/40 hover:border-indigo-500/70 cursor-pointer shadow-sm'
-                    : 'bg-[#111320]/60 border-transparent hover:bg-[#151828]'
+                    ? 'bg-indigo-950/30 border-indigo-500/40'
+                    : 'bg-[#111320]/70 border-[#1f2438]'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {/* User Avatar with status dot and speaking ring */}
-                  <div className="relative shrink-0">
-                    {user.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className={`w-8 h-8 rounded-full object-cover border border-[#262c42] bg-zinc-800 ${
-                          user.isSpeaking ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
-                        }`}
-                      />
-                    ) : (
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow ${
-                          user.isSpeaking ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
-                        }`}
-                        style={{ backgroundColor: user.avatarColor || '#6366f1' }}
-                      >
-                        {user.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <span
-                      className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#0c0d16] ${
-                        user.status === 'online' || !user.status ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-zinc-200 truncate">
-                        {user.name}
-                      </span>
-                      {isMe && (
-                        <span className="text-[10px] text-zinc-400 font-mono">(Você)</span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-zinc-500 flex items-center gap-1">
-                      {isStreaming ? (
-                        <span className="text-indigo-400 font-medium flex items-center gap-0.5">
-                          <Gamepad2 className="w-3 h-3" />
-                          Transmitindo tela
-                        </span>
-                      ) : user.isSpeaking ? (
-                        <span className="text-emerald-400 font-medium">Falando...</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div
+                    onClick={() => isStreaming && onSelectStreamer(user.id)}
+                    className={`flex items-center gap-2 min-w-0 flex-1 ${isStreaming ? 'cursor-pointer' : ''}`}
+                  >
+                    {/* User Avatar with status dot and speaking ring */}
+                    <div className="relative shrink-0">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className={`w-8 h-8 rounded-full object-cover border border-[#262c42] bg-zinc-800 ${
+                            user.isSpeaking ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
+                          }`}
+                        />
                       ) : (
-                        <span>🟢 Online</span>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow ${
+                            user.isSpeaking ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black' : ''
+                          }`}
+                          style={{ backgroundColor: user.avatarColor || '#6366f1' }}
+                        >
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </div>
                       )}
                     </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-zinc-100 truncate">
+                          {user.name}
+                        </span>
+                        {isMe && <span className="text-[10px] text-zinc-400 font-mono">(Você)</span>}
+
+                        {/* Role Badge */}
+                        {isTargetAdmin1 && (
+                          <span className="px-1.5 py-0.2 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[9px] font-black tracking-wider uppercase shadow-sm">
+                            ADMIN 1
+                          </span>
+                        )}
+                        {isTargetAdmin2 && (
+                          <span className="px-1.5 py-0.2 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[9px] font-bold tracking-wider uppercase shadow-sm">
+                            ADMIN 2
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5">
+                        {isStreaming ? (
+                          <span className="text-indigo-400 font-medium flex items-center gap-0.5">
+                            <Gamepad2 className="w-3 h-3" />
+                            Transmitindo tela
+                          </span>
+                        ) : user.isSpeaking ? (
+                          <span className="text-emerald-400 font-medium">Falando...</span>
+                        ) : (
+                          <span>🟢 Online</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions & Mute status */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {user.isMuted && (
+                      <span title="Microfone mutado" className="text-red-400 p-1">
+                        <MicOff className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+
+                    {/* Moderation Dropdown Toggle */}
+                    {isCallerAdmin && !isMe && !isTargetAdmin1 && (
+                      <button
+                        onClick={() =>
+                          setSelectedUserActionMenu(
+                            selectedUserActionMenu === user.id ? null : user.id
+                          )
+                        }
+                        className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800 cursor-pointer"
+                        title="Opções de Moderação"
+                      >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Right side indicators */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {user.isMuted && (
-                    <span title="Microfone mutado" className="text-zinc-500">
-                      <MicOff className="w-3.5 h-3.5" />
-                    </span>
-                  )}
+                {/* Individual Volume Slider */}
+                {!isMe && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-[#1b2034] text-[11px] text-zinc-400">
+                    <button
+                      onClick={() => handleVolumeChange(user.id, userVol > 0 ? 0 : 100)}
+                      className="text-zinc-400 hover:text-white"
+                      title={userVol === 0 ? 'Desmutar' : 'Mutar Local'}
+                    >
+                      {userVol === 0 ? (
+                        <VolumeX className="w-3 h-3 text-red-400" />
+                      ) : (
+                        <Volume2 className="w-3 h-3" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      value={userVol}
+                      onChange={(e) => handleVolumeChange(user.id, Number(e.target.value))}
+                      className="flex-1 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                    <span className="font-mono text-[10px] w-7 text-right">{userVol}%</span>
+                  </div>
+                )}
 
-                  {/* 🔴 AO VIVO BADGE */}
-                  {isStreaming && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold tracking-wider uppercase">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      AO VIVO
-                    </span>
-                  )}
-                </div>
+                {/* Moderation Action Menu for Admin 1 and Admin 2 */}
+                {selectedUserActionMenu === user.id && (
+                  <div className="bg-[#0b0c15] border border-[#232942] rounded-xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 text-xs">
+                    {/* Admin 1 Powers */}
+                    {isCallerAdmin1 && (
+                      <>
+                        <button
+                          onClick={() => {
+                            onSendMessage(`!setadmin2 ${user.name}`);
+                            setSelectedUserActionMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-indigo-950/60 text-indigo-300 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                        >
+                          <Shield className="w-3 h-3 text-indigo-400" />
+                          <span>Promover a ADMIN 2</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            onSendMessage(`!setadmin1 ${user.name}`);
+                            setSelectedUserActionMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-amber-950/60 text-amber-300 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                        >
+                          <Crown className="w-3 h-3 text-amber-400" />
+                          <span>Promover a ADMIN 1</span>
+                        </button>
+
+                        {userRole !== 'member' && (
+                          <button
+                            onClick={() => {
+                              onSendMessage(`!removeadmin ${user.name}`);
+                              setSelectedUserActionMenu(null);
+                            }}
+                            className="w-full text-left px-2 py-1 hover:bg-zinc-800 text-zinc-400 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                          >
+                            <Shield className="w-3 h-3 text-zinc-500" />
+                            <span>Remover Admin</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Common Moderation (Admin 1 & Admin 2) */}
+                    <button
+                      onClick={() => {
+                        onSendMessage(`!mute ${user.name}`);
+                        setSelectedUserActionMenu(null);
+                      }}
+                      className="w-full text-left px-2 py-1 hover:bg-zinc-800 text-zinc-200 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                    >
+                      <MicOff className="w-3 h-3 text-amber-400" />
+                      <span>Mutar Microfone</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onSendMessage(`!timeout ${user.name} 5`);
+                        setSelectedUserActionMenu(null);
+                      }}
+                      className="w-full text-left px-2 py-1 hover:bg-zinc-800 text-zinc-200 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                    >
+                      <Clock className="w-3 h-3 text-amber-400" />
+                      <span>Silenciar 5min (Timeout)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onSendMessage(`!kick ${user.name}`);
+                        setSelectedUserActionMenu(null);
+                      }}
+                      className="w-full text-left px-2 py-1 hover:bg-red-950/50 text-red-400 rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                    >
+                      <UserX className="w-3 h-3 text-red-400" />
+                      <span>Expulsar da Sala</span>
+                    </button>
+
+                    {isCallerAdmin1 && (
+                      <button
+                        onClick={() => {
+                          onSendMessage(`!ban ${user.name}`);
+                          setSelectedUserActionMenu(null);
+                        }}
+                        className="w-full text-left px-2 py-1 hover:bg-red-900/60 text-red-300 font-bold rounded flex items-center gap-1.5 cursor-pointer text-[11px]"
+                      >
+                        <Ban className="w-3 h-3 text-red-400" />
+                        <span>Banir da Sala</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -340,19 +501,23 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <MessageSquare className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-xs font-medium">Nenhuma mensagem ainda</p>
                 <p className="text-[11px] text-zinc-600 mt-1">
-                  Mande uma mensagem ou toque música com <code>!playmusic &lt;link&gt;</code>!
+                  Mande uma mensagem ou digite <code>!help</code> para ver comandos!
                 </p>
               </div>
             ) : (
               messages.map((msg) => {
                 if (msg.type === 'system') {
                   const isMusicBot = msg.senderName?.includes('YouTube');
+                  const isBanOrMute = msg.senderName?.includes('BANIMENTO') || msg.senderName?.includes('Moderação');
+
                   return (
                     <div key={msg.id} className="text-center my-1.5">
                       <span
                         className={`text-[10px] px-2.5 py-1 rounded-xl border leading-relaxed inline-block max-w-[95%] ${
-                          isMusicBot
-                            ? 'bg-red-950/60 text-red-200 border-red-800/80 font-medium'
+                          isBanOrMute
+                            ? 'bg-red-950/70 text-red-200 border-red-700/80 font-bold'
+                            : isMusicBot
+                            ? 'bg-red-950/50 text-red-200 border-red-800/80 font-medium'
                             : 'bg-[#121422] text-zinc-400 border-zinc-800'
                         }`}
                       >
@@ -385,10 +550,23 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-bold text-zinc-300 text-[11px] truncate">
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="font-bold text-zinc-200 text-[11px] truncate">
                           {msg.senderName}
                         </span>
+
+                        {/* Sender Role Badge in Chat */}
+                        {msg.senderRole === 'admin1' && (
+                          <span className="px-1 py-0.2 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[8px] font-black tracking-wider uppercase shadow-xs">
+                            ADMIN 1
+                          </span>
+                        )}
+                        {msg.senderRole === 'admin2' && (
+                          <span className="px-1 py-0.2 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[8px] font-bold tracking-wider uppercase shadow-xs">
+                            ADMIN 2
+                          </span>
+                        )}
+
                         {isMe && <span className="text-[9px] text-indigo-400 font-mono">(Você)</span>}
                         <span className="text-[9px] text-zinc-500">{formattedTime}</span>
                       </div>
@@ -444,15 +622,25 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
           {/* Quick Actions & Reactions Bar */}
           <div className="px-2 py-1.5 border-t border-[#1b1e2a] flex items-center justify-between bg-[#0a0b12]">
-            {/* DJ Bot Launcher Button */}
-            <button
-              onClick={() => setShowMusicPrompt(!showMusicPrompt)}
-              className="flex items-center gap-1 px-2 py-1 bg-red-950/60 hover:bg-red-900/80 border border-red-800/60 text-red-300 rounded-lg text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
-              title="Tocar Música do YouTube com o DJ Bot (!playmusic)"
-            >
-              <Music className="w-3 h-3 text-red-400" />
-              <span>DJ Bot 🎵</span>
-            </button>
+            {/* DJ Bot Launcher Button (Admins only) */}
+            {isCallerAdmin ? (
+              <button
+                onClick={() => setShowMusicPrompt(!showMusicPrompt)}
+                className="flex items-center gap-1 px-2 py-1 bg-red-950/60 hover:bg-red-900/80 border border-red-800/60 text-red-300 rounded-lg text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
+                title="Tocar Música com o DJ Bot (!playmusic)"
+              >
+                <Music className="w-3 h-3 text-red-400" />
+                <span>DJ Bot 🎵</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => onSendMessage('!help')}
+                className="flex items-center gap-1 px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-[11px] font-medium transition-all active:scale-95 cursor-pointer"
+                title="Ver lista de comandos (!help)"
+              >
+                <span>Ajuda (!help)</span>
+              </button>
+            )}
 
             {/* Quick emoji reactions */}
             <div className="flex items-center gap-1">
@@ -480,7 +668,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             <div className="flex items-center gap-1.5 bg-[#141624] rounded-xl p-1 border border-[#22283e] focus-within:border-indigo-500 transition-colors">
               <input
                 type="text"
-                placeholder="Enviar mensagem ou !playmusic <link>..."
+                placeholder="Enviar mensagem ou !help..."
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 className="flex-1 bg-transparent px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none"

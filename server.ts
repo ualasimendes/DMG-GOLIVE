@@ -184,27 +184,29 @@ function toSafeUser(user: StoredUser): SafeUser {
 const PERMANENT_ROOM_ID = "dmg-premium";
 const rooms = new Map<string, Map<string, UserConnection>>();
 const roomMessages = new Map<string, ChatMessage[]>();
-const roomAdmins = new Map<string, Set<string>>(); // roomId -> Set<userId>
+const roomAdminRoles = new Map<string, Map<string, "admin1" | "admin2">>(); // roomId -> (userId -> role)
+const roomBans = new Map<string, Set<string>>(); // roomId -> Set<userId>
 const roomTimeouts = new Map<string, Map<string, number>>(); // roomId -> Map<userId, expiresAt>
 const roomNames = new Map<string, string>(); // roomId -> Room Name
 
-// Super Admin Emails (Full global administrative rights)
+// Super Admin Emails (Strict ADMIN 1 Global Powers)
 const SUPER_ADMIN_EMAILS = ["lacee.mds@gmail.com", "walac@walacemendes.com"];
 
 // Initialize permanent VIP room DMG#PREMIUM
 rooms.set(PERMANENT_ROOM_ID, new Map());
 roomMessages.set(PERMANENT_ROOM_ID, []);
-roomAdmins.set(PERMANENT_ROOM_ID, new Set());
+roomAdminRoles.set(PERMANENT_ROOM_ID, new Map());
+roomBans.set(PERMANENT_ROOM_ID, new Set());
 roomNames.set(PERMANENT_ROOM_ID, "DMG#PREMIUM");
 
-function isUserAdmin(roomId: string, userId: string, email?: string): boolean {
-  if (email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())) return true;
-  const admins = roomAdmins.get(roomId);
-  if (admins && admins.has(userId)) return true;
-  // If first participant / creator
+function getUserRole(roomId: string, userId: string, email?: string): "admin1" | "admin2" | "member" {
+  if (email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())) return "admin1";
+  const roles = roomAdminRoles.get(roomId);
+  if (roles && roles.has(userId)) return roles.get(userId)!;
+  // If first participant / room creator
   const roomUsers = rooms.get(roomId);
-  if (roomUsers && Array.from(roomUsers.keys())[0] === userId) return true;
-  return false;
+  if (roomUsers && Array.from(roomUsers.keys())[0] === userId) return "admin1";
+  return "member";
 }
 
 // WebSocket Server attached to HTTP server
@@ -242,6 +244,7 @@ function getRoomUsersList(roomId: string) {
     name: u.name,
     avatar: u.avatar,
     avatarColor: u.avatarColor,
+    role: getUserRole(roomId, u.id, (u as any).email),
     isStreaming: u.isStreaming,
     isMuted: u.isMuted,
     isDeaf: u.isDeaf,
@@ -260,8 +263,20 @@ wss.on("connection", (ws: WebSocket) => {
 
       switch (data.type) {
         case "join-room": {
-          const { roomId, userId, name, avatar, avatarColor } = data;
+          const { roomId, userId, name, avatar, avatarColor, email } = data;
           if (!roomId || !userId) return;
+
+          // Check if user is banned from this room
+          const banSet = roomBans.get(roomId);
+          if (banSet && banSet.has(userId)) {
+            ws.send(
+              JSON.stringify({
+                type: "room-closed",
+                message: "Você está banido desta sala pelo ADMIN 1.",
+              })
+            );
+            return;
+          }
 
           // Clean up prior room if user was in one
           if (currentUser && currentUser.roomId !== roomId) {
@@ -451,22 +466,25 @@ wss.on("connection", (ws: WebSocket) => {
             message: newMsg,
           });
 
-          // Command Engine with Admin Authorization
+          // Hierarchical Command Engine (ADMIN 1 > ADMIN 2 > MEMBER)
           if (text.startsWith("!")) {
             const parts = text.split(/\s+/);
             const cmd = parts[0].toLowerCase();
             const arg = parts.slice(1).join(" ").trim();
-            const isAdmin = isUserAdmin(currentUser.roomId, currentUser.id, (currentUser as any).email);
+            const userRole = getUserRole(currentUser.roomId, currentUser.id, (currentUser as any).email);
+            const isCallerAdmin1 = userRole === "admin1";
+            const isCallerAdmin2 = userRole === "admin2";
+            const isCallerAdmin = isCallerAdmin1 || isCallerAdmin2;
 
             if (["!playmusic", "!play", "!music", "!tocar"].includes(cmd)) {
-              if (!isAdmin) {
+              if (!isCallerAdmin) {
                 const denyMsg: ChatMessage = {
                   id: `bot-deny-${Date.now()}`,
                   roomId: currentUser.roomId,
                   senderId: "system",
                   senderName: "DJ YouTube Bot 🎵",
                   avatarColor: "#ef4444",
-                  text: `⛔ Apenas administradores da sala podem colocar músicas. Peça a um admin para autorizar com: !admin ${currentUser.name}`,
+                  text: `⛔ Apenas ADMIN 1 e ADMIN 2 podem colocar músicas.`,
                   timestamp: Date.now(),
                   type: "system",
                 };
@@ -474,7 +492,6 @@ wss.on("connection", (ws: WebSocket) => {
                 return;
               }
 
-              // Extract YouTube Video ID
               const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
               const match = arg.match(ytRegex);
 
@@ -518,14 +535,14 @@ wss.on("connection", (ws: WebSocket) => {
                 ws.send(JSON.stringify({ type: "chat-message", message: errorBotMsg }));
               }
             } else if (["!stopmusic", "!stop", "!parar", "!pause"].includes(cmd)) {
-              if (!isAdmin) {
+              if (!isCallerAdmin) {
                 const denyMsg: ChatMessage = {
                   id: `bot-deny-${Date.now()}`,
                   roomId: currentUser.roomId,
                   senderId: "system",
                   senderName: "DJ YouTube Bot 🎵",
                   avatarColor: "#ef4444",
-                  text: `⛔ Apenas administradores da sala podem parar a música.`,
+                  text: `⛔ Apenas ADMIN 1 e ADMIN 2 podem pausar a música.`,
                   timestamp: Date.now(),
                   type: "system",
                 };
@@ -553,19 +570,22 @@ wss.on("connection", (ws: WebSocket) => {
                 type: "youtube-track-stop",
                 requestedBy: currentUser.name,
               });
-            } else if (["!admin", "!op"].includes(cmd)) {
-              if (!isAdmin) {
-                const denyMsg: ChatMessage = {
-                  id: `bot-deny-${Date.now()}`,
-                  roomId: currentUser.roomId,
-                  senderId: "system",
-                  senderName: "Moderação 👑",
-                  avatarColor: "#ef4444",
-                  text: `⛔ Apenas administradores podem delegar administração.`,
-                  timestamp: Date.now(),
-                  type: "system",
-                };
-                ws.send(JSON.stringify({ type: "chat-message", message: denyMsg }));
+            } else if (["!setadmin1", "!admin1"].includes(cmd)) {
+              if (!isCallerAdmin1) {
+                ws.send(
+                  JSON.stringify({
+                    type: "chat-message",
+                    message: {
+                      id: `sys-deny-${Date.now()}`,
+                      roomId: currentUser.roomId,
+                      senderId: "system",
+                      senderName: "Moderação 👑",
+                      text: `⛔ Apenas ADMIN 1 possui permissão para promover novos ADMIN 1.`,
+                      timestamp: Date.now(),
+                      type: "system",
+                    },
+                  })
+                );
                 return;
               }
 
@@ -576,66 +596,217 @@ wss.on("connection", (ws: WebSocket) => {
               );
 
               if (targetUser) {
-                let adminSet = roomAdmins.get(currentUser.roomId);
-                if (!adminSet) {
-                  adminSet = new Set();
-                  roomAdmins.set(currentUser.roomId, adminSet);
+                let roleMap = roomAdminRoles.get(currentUser.roomId);
+                if (!roleMap) {
+                  roleMap = new Map();
+                  roomAdminRoles.set(currentUser.roomId, roleMap);
                 }
-                adminSet.add(targetUser.id);
+                roleMap.set(targetUser.id, "admin1");
 
                 const opMsg: ChatMessage = {
                   id: `sys-op-${Date.now()}`,
                   roomId: currentUser.roomId,
                   senderId: "system",
                   senderName: "Moderação 👑",
-                  avatarColor: "#10b981",
-                  text: `👑 ${targetUser.name} agora é Administrador da sala (concedido por ${currentUser.name}).`,
+                  avatarColor: "#ef4444",
+                  text: `👑 [ADMIN 1] ${targetUser.name} agora possui poder supremo de ADMIN 1 (promovido por ${currentUser.name}).`,
                   timestamp: Date.now(),
                   type: "system",
                 };
                 roomLog?.push(opMsg);
                 broadcastToRoom(currentUser.roomId, { type: "chat-message", message: opMsg });
-              } else {
+                broadcastToRoom(currentUser.roomId, {
+                  type: "user-status-updated",
+                  user: { ...targetUser, role: "admin1" },
+                });
+              }
+            } else if (["!setadmin2", "!admin2", "!op", "!admin"].includes(cmd)) {
+              if (!isCallerAdmin1) {
                 ws.send(
                   JSON.stringify({
                     type: "chat-message",
                     message: {
-                      id: `sys-err-${Date.now()}`,
+                      id: `sys-deny-${Date.now()}`,
                       roomId: currentUser.roomId,
                       senderId: "system",
-                      senderName: "Sistema",
-                      text: `⚠️ Usuário "${arg}" não encontrado na sala.`,
+                      senderName: "Moderação 🛡️",
+                      text: `⛔ Apenas ADMIN 1 possui permissão para delegar cargo de ADMIN 2.`,
                       timestamp: Date.now(),
                       type: "system",
                     },
                   })
                 );
+                return;
               }
-            } else if (["!deop", "!unadmin"].includes(cmd)) {
-              if (!isAdmin) return;
+
               const targetName = arg.toLowerCase();
               const roomUsers = rooms.get(currentUser.roomId);
               const targetUser = Array.from(roomUsers?.values() || []).find(
                 (u) => u.name.toLowerCase().includes(targetName) || u.id === arg
               );
+
               if (targetUser) {
-                const adminSet = roomAdmins.get(currentUser.roomId);
-                adminSet?.delete(targetUser.id);
+                let roleMap = roomAdminRoles.get(currentUser.roomId);
+                if (!roleMap) {
+                  roleMap = new Map();
+                  roomAdminRoles.set(currentUser.roomId, roleMap);
+                }
+                roleMap.set(targetUser.id, "admin2");
+
+                const opMsg: ChatMessage = {
+                  id: `sys-op-${Date.now()}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "Moderação 🛡️",
+                  avatarColor: "#6366f1",
+                  text: `🛡️ [ADMIN 2] ${targetUser.name} foi promovido a ADMIN 2 por ${currentUser.name}.`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+                roomLog?.push(opMsg);
+                broadcastToRoom(currentUser.roomId, { type: "chat-message", message: opMsg });
+                broadcastToRoom(currentUser.roomId, {
+                  type: "user-status-updated",
+                  user: { ...targetUser, role: "admin2" },
+                });
+              }
+            } else if (["!removeadmin", "!deop", "!unadmin"].includes(cmd)) {
+              if (!isCallerAdmin1) {
+                ws.send(
+                  JSON.stringify({
+                    type: "chat-message",
+                    message: {
+                      id: `sys-deny-${Date.now()}`,
+                      roomId: currentUser.roomId,
+                      senderId: "system",
+                      text: `⛔ Apenas ADMIN 1 pode revogar cargos administrativos.`,
+                      timestamp: Date.now(),
+                      type: "system",
+                    },
+                  })
+                );
+                return;
+              }
+
+              const targetName = arg.toLowerCase();
+              const roomUsers = rooms.get(currentUser.roomId);
+              const targetUser = Array.from(roomUsers?.values() || []).find(
+                (u) => u.name.toLowerCase().includes(targetName) || u.id === arg
+              );
+
+              if (targetUser) {
+                const roleMap = roomAdminRoles.get(currentUser.roomId);
+                roleMap?.delete(targetUser.id);
+
                 const deopMsg: ChatMessage = {
                   id: `sys-deop-${Date.now()}`,
                   roomId: currentUser.roomId,
                   senderId: "system",
                   senderName: "Moderação 🛡️",
                   avatarColor: "#f59e0b",
-                  text: `🛡️ O cargo de Administrador de ${targetUser.name} foi revogado por ${currentUser.name}.`,
+                  text: `🛡️ Os cargos administrativos de ${targetUser.name} foram revogados por ${currentUser.name}.`,
                   timestamp: Date.now(),
                   type: "system",
                 };
                 roomLog?.push(deopMsg);
                 broadcastToRoom(currentUser.roomId, { type: "chat-message", message: deopMsg });
+                broadcastToRoom(currentUser.roomId, {
+                  type: "user-status-updated",
+                  user: { ...targetUser, role: "member" },
+                });
               }
+            } else if (["!ban", "!banir"].includes(cmd)) {
+              if (!isCallerAdmin1) {
+                ws.send(
+                  JSON.stringify({
+                    type: "chat-message",
+                    message: {
+                      id: `sys-deny-${Date.now()}`,
+                      roomId: currentUser.roomId,
+                      senderId: "system",
+                      text: `⛔ Apenas ADMIN 1 possui autorização para banir da sala.`,
+                      timestamp: Date.now(),
+                      type: "system",
+                    },
+                  })
+                );
+                return;
+              }
+
+              const targetName = arg.toLowerCase();
+              const roomUsers = rooms.get(currentUser.roomId);
+              const targetUser = Array.from(roomUsers?.values() || []).find(
+                (u) => u.name.toLowerCase().includes(targetName) || u.id === arg
+              );
+
+              if (targetUser) {
+                const targetRole = getUserRole(currentUser.roomId, targetUser.id, (targetUser as any).email);
+                if (targetRole === "admin1" && targetUser.id !== currentUser.id) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ Impossível banir outro ADMIN 1.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
+                let banSet = roomBans.get(currentUser.roomId);
+                if (!banSet) {
+                  banSet = new Set();
+                  roomBans.set(currentUser.roomId, banSet);
+                }
+                banSet.add(targetUser.id);
+
+                if (targetUser.ws.readyState === WebSocket.OPEN) {
+                  targetUser.ws.send(
+                    JSON.stringify({
+                      type: "room-closed",
+                      message: "Você foi banido desta sala pelo ADMIN 1.",
+                    })
+                  );
+                  targetUser.ws.close();
+                }
+
+                const banMsg: ChatMessage = {
+                  id: `sys-ban-${Date.now()}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "BANIMENTO 🔨",
+                  avatarColor: "#ef4444",
+                  text: `🔨 [BANIMENTO] ${targetUser.name} foi banido permanentemente da sala pelo ADMIN 1 (${currentUser.name}).`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+                roomLog?.push(banMsg);
+                broadcastToRoom(currentUser.roomId, { type: "chat-message", message: banMsg });
+              }
+            } else if (["!unban", "!desbanir"].includes(cmd)) {
+              if (!isCallerAdmin1) return;
+              const banSet = roomBans.get(currentUser.roomId);
+              banSet?.delete(arg);
+
+              const unbanMsg: ChatMessage = {
+                id: `sys-unban-${Date.now()}`,
+                roomId: currentUser.roomId,
+                senderId: "system",
+                senderName: "Moderação 🕊️",
+                avatarColor: "#10b981",
+                text: `🕊️ [Desbanimento] ${arg} foi desbanido da sala pelo ADMIN 1.`,
+                timestamp: Date.now(),
+                type: "system",
+              };
+              roomLog?.push(unbanMsg);
+              broadcastToRoom(currentUser.roomId, { type: "chat-message", message: unbanMsg });
             } else if (["!timeout", "!silenciar"].includes(cmd)) {
-              if (!isAdmin) {
+              if (!isCallerAdmin) {
                 ws.send(
                   JSON.stringify({
                     type: "chat-message",
@@ -643,7 +814,7 @@ wss.on("connection", (ws: WebSocket) => {
                       id: `sys-err-${Date.now()}`,
                       roomId: currentUser.roomId,
                       senderId: "system",
-                      text: `⛔ Apenas administradores podem aplicar timeout.`,
+                      text: `⛔ Apenas Administradores podem aplicar timeout.`,
                       timestamp: Date.now(),
                       type: "system",
                     },
@@ -662,6 +833,41 @@ wss.on("connection", (ws: WebSocket) => {
               );
 
               if (targetUser) {
+                const targetRole = getUserRole(currentUser.roomId, targetUser.id, (targetUser as any).email);
+                if (targetRole === "admin1") {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ ADMIN 1 é imune a timeout.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
+                if (isCallerAdmin2 && targetRole === "admin2") {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ ADMIN 2 não possui poder de moderação sobre outro ADMIN 2.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
                 let timeouts = roomTimeouts.get(currentUser.roomId);
                 if (!timeouts) {
                   timeouts = new Map();
@@ -676,7 +882,7 @@ wss.on("connection", (ws: WebSocket) => {
                   senderId: "system",
                   senderName: "Moderação ⏳",
                   avatarColor: "#ef4444",
-                  text: `⏳ ${targetUser.name} recebeu timeout no chat de ${minutes} minuto(s) por ${currentUser.name}.`,
+                  text: `⏳ ${targetUser.name} foi silenciado no chat por ${minutes} minuto(s) por ${currentUser.name}.`,
                   timestamp: Date.now(),
                   type: "system",
                 };
@@ -684,23 +890,136 @@ wss.on("connection", (ws: WebSocket) => {
                 broadcastToRoom(currentUser.roomId, { type: "chat-message", message: timeoutMsg });
               }
             } else if (["!kick", "!expulsar"].includes(cmd)) {
-              if (!isAdmin) return;
+              if (!isCallerAdmin) return;
               const targetName = arg.toLowerCase();
               const roomUsers = rooms.get(currentUser.roomId);
               const targetUser = Array.from(roomUsers?.values() || []).find(
                 (u) => u.name.toLowerCase().includes(targetName) || u.id === arg
               );
-              if (targetUser && targetUser.ws.readyState === WebSocket.OPEN) {
-                targetUser.ws.send(
-                  JSON.stringify({
-                    type: "room-closed",
-                    message: "Você foi expulso da sala pelo administrador.",
-                  })
-                );
-                targetUser.ws.close();
+
+              if (targetUser) {
+                const targetRole = getUserRole(currentUser.roomId, targetUser.id, (targetUser as any).email);
+                if (targetRole === "admin1") {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ Impossível expulsar o ADMIN 1.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
+                if (isCallerAdmin2 && targetRole === "admin2") {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ ADMIN 2 não tem poder sobre outro ADMIN 2.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
+                if (targetUser.ws.readyState === WebSocket.OPEN) {
+                  targetUser.ws.send(
+                    JSON.stringify({
+                      type: "room-closed",
+                      message: "Você foi expulso da sala pelo administrador.",
+                    })
+                  );
+                  targetUser.ws.close();
+                }
+
+                const kickMsg: ChatMessage = {
+                  id: `sys-kick-${Date.now()}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "Moderação 👢",
+                  avatarColor: "#ef4444",
+                  text: `👢 [Expulsão] ${targetUser.name} foi expulso da sala por ${currentUser.name}.`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+                roomLog?.push(kickMsg);
+                broadcastToRoom(currentUser.roomId, { type: "chat-message", message: kickMsg });
+              }
+            } else if (["!mute", "!mutar"].includes(cmd)) {
+              if (!isCallerAdmin) return;
+              const targetName = arg.toLowerCase();
+              const roomUsers = rooms.get(currentUser.roomId);
+              const targetUser = Array.from(roomUsers?.values() || []).find(
+                (u) => u.name.toLowerCase().includes(targetName) || u.id === arg
+              );
+
+              if (targetUser) {
+                const targetRole = getUserRole(currentUser.roomId, targetUser.id, (targetUser as any).email);
+                if (targetRole === "admin1") {
+                  ws.send(
+                    JSON.stringify({
+                      type: "chat-message",
+                      message: {
+                        id: `sys-deny-${Date.now()}`,
+                        roomId: currentUser.roomId,
+                        senderId: "system",
+                        text: `⛔ ADMIN 1 é imune a mute.`,
+                        timestamp: Date.now(),
+                        type: "system",
+                      },
+                    })
+                  );
+                  return;
+                }
+
+                targetUser.isMuted = true;
+                broadcastToRoom(currentUser.roomId, {
+                  type: "user-status-updated",
+                  user: { ...targetUser, isMuted: true },
+                });
+
+                const muteMsg: ChatMessage = {
+                  id: `sys-mute-${Date.now()}`,
+                  roomId: currentUser.roomId,
+                  senderId: "system",
+                  senderName: "Moderação 🔇",
+                  avatarColor: "#ef4444",
+                  text: `🔇 ${targetUser.name} foi mutado no microfone por ${currentUser.name}.`,
+                  timestamp: Date.now(),
+                  type: "system",
+                };
+                roomLog?.push(muteMsg);
+                broadcastToRoom(currentUser.roomId, { type: "chat-message", message: muteMsg });
               }
             } else if (["!fecharsala", "!close"].includes(cmd)) {
-              if (!isAdmin) return;
+              if (!isCallerAdmin1) {
+                ws.send(
+                  JSON.stringify({
+                    type: "chat-message",
+                    message: {
+                      id: `sys-deny-${Date.now()}`,
+                      roomId: currentUser.roomId,
+                      senderId: "system",
+                      text: `⛔ Apenas o ADMIN 1 pode fechar e excluir a sala.`,
+                      timestamp: Date.now(),
+                      type: "system",
+                    },
+                  })
+                );
+                return;
+              }
+
               if (currentUser.roomId === PERMANENT_ROOM_ID) {
                 ws.send(
                   JSON.stringify({
@@ -717,13 +1036,15 @@ wss.on("connection", (ws: WebSocket) => {
                 );
                 return;
               }
+
               broadcastToRoom(currentUser.roomId, {
                 type: "room-closed",
-                message: `A sala foi encerrada pelo administrador ${currentUser.name}.`,
+                message: `A sala foi encerrada pelo ADMIN 1 (${currentUser.name}).`,
               });
               rooms.delete(currentUser.roomId);
               roomMessages.delete(currentUser.roomId);
-              roomAdmins.delete(currentUser.roomId);
+              roomAdminRoles.delete(currentUser.roomId);
+              roomBans.delete(currentUser.roomId);
               roomTimeouts.delete(currentUser.roomId);
               roomNames.delete(currentUser.roomId);
             } else if (["!ajuda", "!help", "!comandos"].includes(cmd)) {
@@ -733,7 +1054,7 @@ wss.on("connection", (ws: WebSocket) => {
                 senderId: "system",
                 senderName: "DMG Central de Ajuda 📋",
                 avatarColor: "#6366f1",
-                text: `📋 COMANDOS DISPONÍVEIS:\n• !help (Exibe esta lista)\n• !playmusic <link_youtube> (Toca música do YouTube - Admins)\n• !stopmusic (Pausa a música da sala - Admins)\n• !admin <nome> ou !op <nome> (Promove usuário a Admin)\n• !deop <nome> (Remove cargo de Admin)\n• !timeout <nome> <minutos> (Silencia usuário no chat)\n• !kick <nome> (Expulsa usuário da sala)\n• !fecharsala (Encerra e exclui a sala)`,
+                text: `👑 HIERARQUIA & COMANDOS DMG:\n\n[ ADMIN 1 (Poder Absoluto) ]\n• !setadmin1 <nome> (Promove a ADMIN 1)\n• !setadmin2 <nome> (Promove a ADMIN 2)\n• !removeadmin <nome> (Remove cargos)\n• !ban <nome> (Bane da sala permanentemente)\n• !unban <id> (Desbane usuário)\n• !fecharsala (Encerra e exclui sala)\n\n[ ADMIN 2 (Moderação Delegada) ]\n• !kick <nome> (Expulsa membros normais)\n• !timeout <nome> <minutos> (Silencia no chat)\n• !mute <nome> (Muta microfone)\n• !playmusic <link> (Toca música YouTube)\n• !stopmusic (Pausa música YouTube)\n\n[ MEMBROS ]\n• !help (Exibe lista de ajuda)`,
                 timestamp: Date.now(),
                 type: "system",
               };
@@ -760,8 +1081,9 @@ wss.on("connection", (ws: WebSocket) => {
         case "delete-room": {
           if (!currentUser) return;
           const targetRoomId = data.roomId || currentUser.roomId;
-          const isAdmin = isUserAdmin(targetRoomId, currentUser.id, (currentUser as any).email);
-          if (!isAdmin) {
+          const userRole = getUserRole(targetRoomId, currentUser.id, (currentUser as any).email);
+          const isCallerAdmin1 = userRole === "admin1";
+          if (!isCallerAdmin1) {
             ws.send(
               JSON.stringify({
                 type: "chat-message",
@@ -769,7 +1091,7 @@ wss.on("connection", (ws: WebSocket) => {
                   id: `sys-deny-${Date.now()}`,
                   roomId: targetRoomId,
                   senderId: "system",
-                  text: `⛔ Apenas o criador ou administradores podem fechar esta sala.`,
+                  text: `⛔ Apenas o ADMIN 1 pode fechar e excluir esta sala.`,
                   timestamp: Date.now(),
                   type: "system",
                 },
@@ -797,11 +1119,12 @@ wss.on("connection", (ws: WebSocket) => {
 
           broadcastToRoom(targetRoomId, {
             type: "room-closed",
-            message: "A sala foi encerrada e excluída pelo administrador.",
+            message: "A sala foi encerrada e excluída pelo ADMIN 1.",
           });
           rooms.delete(targetRoomId);
           roomMessages.delete(targetRoomId);
-          roomAdmins.delete(targetRoomId);
+          roomAdminRoles.delete(targetRoomId);
+          roomBans.delete(targetRoomId);
           roomTimeouts.delete(targetRoomId);
           roomNames.delete(targetRoomId);
           break;
@@ -828,7 +1151,8 @@ wss.on("connection", (ws: WebSocket) => {
         if (room.size === 0 && currentUser.roomId !== PERMANENT_ROOM_ID) {
           rooms.delete(currentUser.roomId);
           roomMessages.delete(currentUser.roomId);
-          roomAdmins.delete(currentUser.roomId);
+          roomAdminRoles.delete(currentUser.roomId);
+          roomBans.delete(currentUser.roomId);
           roomTimeouts.delete(currentUser.roomId);
           roomNames.delete(currentUser.roomId);
         } else {
@@ -1184,9 +1508,9 @@ apiRouter.post("/room/create", (req, res) => {
     roomMessages.set(roomId, []);
     roomNames.set(roomId, roomName);
 
-    const adminSet = new Set<string>();
-    adminSet.add(user.id);
-    roomAdmins.set(roomId, adminSet);
+    const roleMap = new Map<string, "admin1" | "admin2">();
+    roleMap.set(user.id, "admin1");
+    roomAdminRoles.set(roomId, roleMap);
 
     res.json({
       success: true,

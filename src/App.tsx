@@ -251,6 +251,7 @@ export default function App() {
       name: u.name,
       avatar: u.avatar,
       avatarColor: u.avatarColor,
+      role: u.role || (u.email === 'lacee.mds@gmail.com' ? 'admin1' : u.id === users[0]?.id ? 'admin1' : 'member'),
       status: 'online',
       isStreaming: u.isStreaming,
       isSpeaking: u.isSpeaking,
@@ -267,11 +268,24 @@ export default function App() {
         meInList.isSpeaking = isLocalSpeaking;
         meInList.isMuted = isMuted;
         meInList.isDeaf = isDeaf;
+        if (currentUser.email === 'lacee.mds@gmail.com' || currentUser.email === 'walac@walacemendes.com') {
+          meInList.role = 'admin1';
+        }
       }
     }
 
     return list;
   }, [users, currentUser, isStreaming, isLocalSpeaking, isMuted, isDeaf]);
+
+  // Current User Role
+  const currentUserRole = useMemo<'admin1' | 'admin2' | 'member'>(() => {
+    if (!currentUser) return 'member';
+    if (currentUser.email && ['lacee.mds@gmail.com', 'walac@walacemendes.com'].includes(currentUser.email.toLowerCase())) {
+      return 'admin1';
+    }
+    const me = participants.find((p) => p.id === currentUser.id);
+    return me?.role || 'member';
+  }, [currentUser, participants]);
 
   // Handlers
   const handleCreateAndJoin = (name: string, id: string) => {
@@ -464,6 +478,7 @@ export default function App() {
               roomId={roomId}
               participants={participants}
               currentUserId={currentUser ? currentUser.id : ''}
+              currentUserRole={currentUserRole}
               messages={messages}
               activeYouTubeTrack={activeYouTubeTrack}
               onSendMessage={sendMessage}
