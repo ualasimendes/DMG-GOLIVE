@@ -579,6 +579,39 @@ export function useWebRTC(
             setUsers((prev) =>
               prev.map((u) => (u.id === updatedUser.id ? { ...u, ...updatedUser } : u))
             );
+
+            if (updatedUser.isStreaming === false) {
+              const composite = compositeStreamsRef.current.get(updatedUser.id);
+              if (composite) {
+                composite.getVideoTracks().forEach((track) => {
+                  try {
+                    track.stop();
+                    composite.removeTrack(track);
+                  } catch {}
+                });
+              }
+
+              setRemoteStreams((prev) => {
+                const next = new Map<string, PeerStreamData>(prev);
+                const current = next.get(updatedUser.id);
+                if (current) {
+                  // If there is still an audio track, preserve it, otherwise remove
+                  if (composite && composite.getAudioTracks().length > 0) {
+                    next.set(updatedUser.id, {
+                      userId: current.userId,
+                      userName: current.userName,
+                      avatarColor: current.avatarColor,
+                      avatarUrl: current.avatarUrl,
+                      stream: composite,
+                      streamType: current.streamType,
+                    });
+                  } else {
+                    next.delete(updatedUser.id);
+                  }
+                }
+                return next;
+              });
+            }
             break;
           }
 
@@ -634,7 +667,21 @@ export function useWebRTC(
       setIsConnected(false);
     };
 
+    const handleBeforeUnload = () => {
+      if (localScreenStreamRef.current) {
+        localScreenStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (localMicStreamRef.current) {
+        localMicStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'update-status', isStreaming: false }));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       clearInterval(pingInterval);
       if (wsRef.current) {
         wsRef.current.close();

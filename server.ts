@@ -1247,6 +1247,19 @@ wss.on("connection", (ws: WebSocket) => {
     if (currentUser) {
       const room = rooms.get(currentUser.roomId);
       if (room) {
+        // Se estava transmitindo, notifica a sala para liberar o slot imediatamente
+        if (currentUser.isStreaming) {
+          currentUser.isStreaming = false;
+          broadcastToRoom(currentUser.roomId, {
+            type: "user-status-updated",
+            user: {
+              id: currentUser.id,
+              name: currentUser.name,
+              isStreaming: false,
+            },
+          });
+        }
+
         room.delete(currentUser.id);
         if (room.size === 0 && currentUser.roomId !== PERMANENT_ROOM_ID) {
           scheduleRoomDestruction(currentUser.roomId);

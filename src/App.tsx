@@ -9,8 +9,9 @@ import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
 import { TermsModal } from './components/TermsModal';
+import { StartStreamModal } from './components/StartStreamModal';
 import { useWebRTC } from './hooks/useWebRTC';
-import { AuthUser, UserProfile } from './types';
+import { AuthUser, UserProfile, StreamQuality } from './types';
 import { Check } from 'lucide-react';
 import { getApiBaseUrl } from './utils/api';
 
@@ -50,7 +51,7 @@ const RemoteAudioPlayer: React.FC<{ stream: MediaStream; isDeaf: boolean }> = ({
     tryPlay();
   }, [stream, isDeaf]);
 
-  return <audio ref={audioRef} autoPlay playsInline muted={isDeaf} className="hidden" />;
+  return <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />;
 };
 
 const SUPER_ADMIN_EMAILS = [
@@ -67,11 +68,12 @@ export default function App() {
   const [roomName, setRoomName] = useState<string>('');
   const [activeStreamerId, setActiveStreamerId] = useState<string | null>(null);
 
-  // Modals
+  // Modals state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isStartStreamModalOpen, setIsStartStreamModalOpen] = useState<boolean>(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -230,22 +232,11 @@ export default function App() {
 
   // Transform remoteStreams into list of streamers (Filter ONLY real live video tracks)
   const allStreamers = useMemo(() => {
-    const list = Array.from(remoteStreams.values())
-      .filter((peer: any) => peer.stream && peer.stream.getVideoTracks().some((t: any) => t.readyState === 'live'))
-      .map((peer: any) => ({
-        id: peer.userId,
-        name: peer.userName,
-        avatar: peer.avatarUrl,
-        avatarColor: peer.avatarColor,
-        isStreaming: true,
-        stream: peer.stream,
-        gameTitle: 'Transmissão Ao Vivo',
-        viewers: users.length,
-        isLocal: false,
-      }));
+    const list: any[] = [];
 
-    if (isStreaming && localScreenStream && currentUser) {
-      list.unshift({
+    // Local screen share if active
+    if (isStreaming && localScreenStream && currentUser && localScreenStream.getVideoTracks().some((t) => t.readyState === 'live')) {
+      list.push({
         id: currentUser.id,
         name: `${currentUser.displayName || currentUser.username} (Você)`,
         avatar: currentUser.avatarUrl,
@@ -258,18 +249,20 @@ export default function App() {
       });
     }
 
-    // Also include any user in the room marked as streaming so the stage immediately tracks them
-    users.forEach((u) => {
-      if (u.isStreaming && u.id !== currentUser?.id && !list.some((s) => s.id === u.id)) {
-        const rData = remoteStreams.get(u.id);
+    // Remote peer streams (only with valid live video tracks)
+    Array.from(remoteStreams.values()).forEach((peer: any) => {
+      const hasLiveVideo = peer.stream && peer.stream.getVideoTracks().some((t: any) => t.readyState === 'live');
+      const remoteUser = users.find((u) => u.id === peer.userId);
+
+      if (hasLiveVideo && remoteUser?.isStreaming !== false) {
         list.push({
-          id: u.id,
-          name: u.name,
-          avatar: u.avatar,
-          avatarColor: u.avatarColor,
+          id: peer.userId,
+          name: peer.userName,
+          avatar: peer.avatarUrl,
+          avatarColor: peer.avatarColor,
           isStreaming: true,
-          stream: rData?.stream || (null as any),
-          gameTitle: u.streamTitle || 'Transmissão Ao Vivo',
+          stream: peer.stream,
+          gameTitle: remoteUser?.streamTitle || 'Transmissão Ao Vivo',
           viewers: users.length,
           isLocal: false,
         });
@@ -287,6 +280,13 @@ export default function App() {
       if (found) return found;
     }
     return allStreamers[0];
+  }, [allStreamers, activeStreamerId]);
+
+  // Automatically reset activeStreamerId if streamer closed window / stopped
+  useEffect(() => {
+    if (activeStreamerId && !allStreamers.some((s) => s.id === activeStreamerId)) {
+      setActiveStreamerId(null);
+    }
   }, [allStreamers, activeStreamerId]);
 
   // Build participant list
@@ -332,40 +332,25 @@ export default function App() {
     return me?.role || 'member';
   }, [currentUser, participants]);
 
-  // Handlers
-  const handleCreateAndJoin = (name: string, id: string) => {
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      showToast('Faça login com sua Conta Google para criar uma sala.');
-      return;
-    }
-
-    setRoomId(id);
-    setRoomName(name);
-    setCurrentView('room');
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('room', id);
-    window.history.pushState({}, '', url.toString());
-
-    showToast(`"${name}" criada com sucesso!`);
-  };
-
-  const handleJoinByCode = (code: string) => {
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      showToast('Faça login com sua Conta Google para entrar na sala.');
-      return;
-    }
-
-    const cleanId = code.toLowerCase().trim().replace(/\s+/g, '-');
+  // Handler for joining room from Landing page
+  const handleJoinRoom = (targetRoomId: string, targetRoomName?: string) => {
+    const cleanId = targetRoomId.toLowerCase().trim().replace(/\s+/g, '-');
     setRoomId(cleanId);
-    setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
+    setRoomName(targetRoomName || cleanId.replace(/-/g, ' ').toUpperCase());
     setCurrentView('room');
 
     const url = new URL(window.location.href);
     url.searchParams.set('room', cleanId);
     window.history.pushState({}, '', url.toString());
+  };
+
+  const handleJoinByCode = (code: string) => {
+    handleJoinRoom(code);
+  };
+
+  const handleCreateAndJoin = (newRoomId: string, newRoomName: string) => {
+    handleJoinRoom(newRoomId, newRoomName);
+    setIsCreateModalOpen(false);
   };
 
   const handleLeaveRoom = () => {
@@ -395,25 +380,31 @@ export default function App() {
     showToast('Você encerrou e excluiu a sala.');
   };
 
-  const handleToggleScreenShare = async () => {
+  const handleToggleScreenShare = () => {
     if (isStreaming) {
       stopScreenShare();
       showToast('Transmissão de tela encerrada.');
     } else {
-      // Bloqueio: Apenas 1 live permitida por vez na sala
-      const activeStreamer = users.find((u) => u.isStreaming && u.id !== currentUser?.id);
+      // Bloqueio: Verifica se outro participante está com stream ativo de verdade
+      const activeStreamer = allStreamers.find((s) => !s.isLocal);
       if (activeStreamer) {
         showToast(`⚠️ ${activeStreamer.name} já está transmitindo. Apenas 1 transmissão por vez é permitida nesta sala.`);
         return;
       }
 
-      try {
-        await startScreenShare();
-        showToast('Compartilhando tela em 1080p 60 FPS!');
-      } catch (err: any) {
-        if (err.name !== 'NotAllowedError') {
-          showToast('Erro ao iniciar compartilhamento de tela.');
-        }
+      // Abre o modal de configuração de resolução/FPS/bitrate antes de capturar
+      setIsStartStreamModalOpen(true);
+    }
+  };
+
+  const handleConfirmStartStream = async (chosenQuality: StreamQuality) => {
+    setStreamQuality(chosenQuality);
+    try {
+      await startScreenShare();
+      showToast(`Transmitindo em ${chosenQuality.resolution} ${chosenQuality.fps} FPS (${chosenQuality.bitrate})!`);
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        showToast('Erro ao iniciar compartilhamento de tela.');
       }
     }
   };
@@ -600,6 +591,13 @@ export default function App() {
           setStreamQuality(newQuality);
           showToast(`Qualidade definida: ${newQuality.resolution} @ ${newQuality.fps} FPS`);
         }}
+      />
+
+      <StartStreamModal
+        isOpen={isStartStreamModalOpen}
+        onClose={() => setIsStartStreamModalOpen(false)}
+        currentQuality={streamQuality}
+        onStart={handleConfirmStartStream}
       />
 
       <TermsModal
