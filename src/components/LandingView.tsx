@@ -23,7 +23,6 @@ interface LandingViewProps {
   onOpenAuthModal: () => void;
   onOpenProfileModal: () => void;
   onOpenTermsModal: () => void;
-  recentRooms: { id: string; name: string }[];
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
@@ -33,7 +32,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
   onOpenAuthModal,
   onOpenProfileModal,
   onOpenTermsModal,
-  recentRooms,
 }) => {
   const [joinCode, setJoinCode] = useState('');
 
@@ -55,14 +53,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
       return;
     }
     onJoinRoom(joinCode.trim());
-  };
-
-  const handleRecentRoomClick = (roomId: string) => {
-    if (!isLoggedIn) {
-      onOpenAuthModal();
-      return;
-    }
-    onJoinRoom(roomId);
   };
 
   return (
@@ -237,7 +227,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2.5 transition-all transform active:scale-98 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Criar Nova Sala</span>
+            <span>Criar Nova Sala (ex: ROOM #0001)</span>
           </button>
 
           {/* Divider */}
@@ -256,8 +246,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
               type="text"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
-              placeholder="Digite o código da sala..."
-              className="flex-1 bg-[#141724] border border-[#22283c] rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              placeholder="Digite o código da sala (ex: room-0001)..."
+              className="flex-1 bg-[#141724] border border-[#22283c] rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
             />
             <button
               id="btn-landing-join-room"
@@ -269,26 +259,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
-
-          {/* Recent Rooms */}
-          {recentRooms.length > 0 && (
-            <div className="pt-2 text-left space-y-1.5">
-              <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                Salas Recentes
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {recentRooms.slice(0, 3).map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => handleRecentRoomClick(r.id)}
-                    className="px-2.5 py-1 bg-[#141726] hover:bg-[#1c2035] border border-[#22283e] text-indigo-300 hover:text-white rounded-lg text-xs font-mono transition-colors cursor-pointer"
-                  >
-                    #{r.name || r.id}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Feature Badges */}

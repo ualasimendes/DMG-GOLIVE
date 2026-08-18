@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X, Copy, Check, Gamepad2, ArrowRight, ShieldAlert, AlertTriangle } from 'lucide-react';
-import { getShareableRoomUrl } from '../utils/api';
+import React, { useState, useEffect } from 'react';
+import { X, Copy, Check, Gamepad2, ArrowRight, ShieldAlert } from 'lucide-react';
+import { getShareableRoomUrl, getApiBaseUrl } from '../utils/api';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -13,27 +13,52 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   onClose,
   onCreateAndJoin,
 }) => {
-  const [roomName, setRoomName] = useState('Gameplay');
+  const [roomName, setRoomName] = useState('ROOM #0001');
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [acceptedGuidelines, setAcceptedGuidelines] = useState(true);
+
+  // Fetch active rooms on open to suggest the next sequential number (ROOM #0001, ROOM #0002, etc.)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const apiBase = getApiBaseUrl();
+    fetch(`${apiBase}/rooms`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const activeCount = data?.rooms?.length || 0;
+        const nextNum = String(activeCount + 1).padStart(4, '0');
+        setRoomName(`ROOM #${nextNum}`);
+      })
+      .catch(() => {
+        setRoomName('ROOM #0001');
+      });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomName.trim() || !acceptedGuidelines) return;
+    if (!acceptedGuidelines) return;
 
-    // Generate clean room slug
-    const cleanSlug = roomName
-      .toLowerCase()
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-');
-    const randomSuffix = Math.random().toString(36).substring(2, 6);
-    const finalId = `${cleanSlug || 'gameplay'}-${randomSuffix}`;
+    const cleanInput = roomName.trim() || 'ROOM #0001';
+
+    // Match ROOM #0001 pattern or generate clean slug
+    const matchNumber = cleanInput.match(/#?(\d+)/);
+    let finalId = '';
+
+    if (cleanInput.toUpperCase().startsWith('ROOM') && matchNumber) {
+      const padNum = String(matchNumber[1]).padStart(4, '0');
+      finalId = `room-${padNum}`;
+    } else {
+      const cleanSlug = cleanInput
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-');
+      finalId = `${cleanSlug || 'room'}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
 
     setCreatedRoomId(finalId);
   };
@@ -49,7 +74,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
   const handleEnterRoom = () => {
     if (createdRoomId) {
-      onCreateAndJoin(roomName, createdRoomId);
+      onCreateAndJoin(roomName.trim() || 'ROOM #0001', createdRoomId);
       setCreatedRoomId(null);
       onClose();
     }
@@ -83,7 +108,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               </div>
               <h3 className="text-lg font-bold text-zinc-100">Criar Nova Sala</h3>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Transmita sua gameplay ou assista filmes em tempo real com áudio estéreo.
+                Transmissão em 1080p 60 FPS. A sala fechará automaticamente quando todos saírem.
               </p>
             </div>
 
@@ -94,9 +119,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 type="text"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
-                placeholder="Ex: CS2 da Galera, Sessão Pipoca"
+                placeholder="Ex: ROOM #0001"
                 autoFocus
-                className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -107,7 +132,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 <span>Diretrizes de Segurança e Transmissão</span>
               </div>
               <p className="text-[11px] text-zinc-400 leading-relaxed">
-                É expressamente proibida a transmissão de qualquer conteúdo <strong>sexual, explícito, violento, que viole direitos humanos ou condutas sem escrúpulos</strong>. Infratores serão banidos permanentemente.
+                É expressamente proibida a transmissão de conteúdo <strong>sexual, explícito, violento ou que fira os direitos humanos</strong>. Infratores serão banidos permanentemente.
               </p>
             </div>
 
@@ -122,7 +147,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               <button
                 type="submit"
                 id="btn-confirm-create-room"
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 cursor-pointer"
               >
                 Criar Sala
               </button>
@@ -136,7 +161,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-zinc-100">Sala criada com sucesso!</h3>
+              <h3 className="text-lg font-bold text-zinc-100">{roomName} criada!</h3>
               <p className="text-xs text-zinc-400 mt-1">
                 Envie o link abaixo para seus amigos entrarem instantaneamente.
               </p>
@@ -159,7 +184,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
                     copied
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm cursor-pointer'
                   }`}
                 >
                   {copied ? (
@@ -180,7 +205,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             <button
               id="btn-enter-created-room"
               onClick={handleEnterRoom}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-95 cursor-pointer"
             >
               <span>Entrar na sala</span>
               <ArrowRight className="w-4 h-4" />

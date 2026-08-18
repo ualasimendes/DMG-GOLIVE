@@ -11,7 +11,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { TermsModal } from './components/TermsModal';
 import { useWebRTC } from './hooks/useWebRTC';
 import { AuthUser, UserProfile } from './types';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { getApiBaseUrl } from './utils/api';
 
 export default function App() {
@@ -29,7 +29,7 @@ export default function App() {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // User Profile: strictly null if unauthenticated (no generic guest fallback)
+  // User Profile: strictly null if unauthenticated
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     try {
       const saved = localStorage.getItem('dmg_auth_user');
@@ -42,21 +42,13 @@ export default function App() {
       }
     } catch {}
 
-    // Clear legacy guest tokens from browser storage
+    // Clear legacy guest tokens and old stored rooms
     try {
       localStorage.removeItem('dmg_auth_user');
       localStorage.removeItem('dmg_auth_token');
+      localStorage.removeItem('dmg_recent_rooms');
     } catch {}
     return null;
-  });
-
-  // Recent Rooms
-  const [recentRooms, setRecentRooms] = useState<{ id: string; name: string }[]>(() => {
-    try {
-      const saved = localStorage.getItem('dmg_recent_rooms');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [];
   });
 
   const showToast = (msg: string) => {
@@ -96,7 +88,6 @@ export default function App() {
       setRoomId(cleanId);
       setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
 
-      // If authenticated, enter room directly; otherwise prompt login
       const token = localStorage.getItem('dmg_auth_token');
       if (token && !token.startsWith('guest_')) {
         setCurrentView('room');
@@ -104,12 +95,6 @@ export default function App() {
         setIsAuthModalOpen(true);
         showToast('Faça login com sua Conta Google para acessar a sala.');
       }
-
-      setRecentRooms((prev) => {
-        const next = [{ id: cleanId, name: cleanId.replace(/-/g, ' ').toUpperCase() }, ...prev.filter((r) => r.id !== cleanId)];
-        localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
-        return next;
-      });
     }
   }, []);
 
@@ -237,17 +222,11 @@ export default function App() {
     setRoomName(name);
     setCurrentView('room');
 
-    setRecentRooms((prev) => {
-      const next = [{ id, name }, ...prev.filter((r) => r.id !== id)];
-      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
-      return next;
-    });
-
     const url = new URL(window.location.href);
     url.searchParams.set('room', id);
     window.history.pushState({}, '', url.toString());
 
-    showToast(`Sala "${name}" criada com sucesso!`);
+    showToast(`"${name}" criada com sucesso!`);
   };
 
   const handleJoinByCode = (code: string) => {
@@ -262,31 +241,8 @@ export default function App() {
     setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
     setCurrentView('room');
 
-    setRecentRooms((prev) => {
-      const next = [{ id: cleanId, name: cleanId.replace(/-/g, ' ').toUpperCase() }, ...prev.filter((r) => r.id !== cleanId)];
-      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
-      return next;
-    });
-
     const url = new URL(window.location.href);
     url.searchParams.set('room', cleanId);
-    window.history.pushState({}, '', url.toString());
-  };
-
-  const handleSelectRecentRoom = (id: string) => {
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      showToast('Faça login com sua Conta Google para entrar.');
-      return;
-    }
-
-    const found = recentRooms.find((r) => r.id === id);
-    setRoomId(id);
-    setRoomName(found ? found.name : id);
-    setCurrentView('room');
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('room', id);
     window.history.pushState({}, '', url.toString());
   };
 
@@ -379,7 +335,6 @@ export default function App() {
             }
           }}
           onOpenTermsModal={() => setIsTermsModalOpen(true)}
-          recentRooms={recentRooms}
         />
       ) : (
         /* Room View Layout */
@@ -390,6 +345,7 @@ export default function App() {
             <Sidebar
               currentUser={currentUser}
               activeRoomId={roomId}
+              activeRoomName={roomName}
               onOpenCreateRoom={() => {
                 if (!currentUser) {
                   setIsAuthModalOpen(true);
@@ -400,8 +356,7 @@ export default function App() {
               }}
               onOpenSettings={() => setIsSettingsModalOpen(true)}
               onOpenProfile={() => (!currentUser ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true))}
-              recentRooms={recentRooms}
-              onSelectRoom={handleSelectRecentRoom}
+              onLeaveRoom={handleLeaveRoom}
             />
 
             {/* 2. Área Central (Stage / Compartilhamento de Tela) */}
