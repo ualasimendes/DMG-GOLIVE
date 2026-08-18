@@ -62,6 +62,8 @@ const app = express();
 const server = http.createServer(app);
 const PORT = Number(process.env.PORT) || 3000;
 const SECRET_KEY = process.env.JWT_SECRET || "dmg-liveshare-secret-key-2026-auth";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "986855077085-ba6jsg0nkt7s3oj78mersmgqard7usqg.apps.googleusercontent.com";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
 app.use(express.json());
 
