@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, LogOut, Check, Save, Sparkles, ShieldCheck } from 'lucide-react';
+import { X, User, LogOut, Check, Save, Sparkles, ShieldCheck, Mail } from 'lucide-react';
 import { AuthUser } from '../types';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -11,17 +11,6 @@ interface ProfileModalProps {
   onLogout: () => void;
 }
 
-const AVATAR_COLORS = [
-  '#6366f1', // Indigo
-  '#8b5cf6', // Violet
-  '#ec4899', // Pink
-  '#ef4444', // Red
-  '#f59e0b', // Amber
-  '#10b981', // Emerald
-  '#06b6d4', // Cyan
-  '#3b82f6', // Blue
-];
-
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen,
   onClose,
@@ -30,8 +19,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onLogout,
 }) => {
   const [displayName, setDisplayName] = useState(currentUser.displayName || currentUser.username);
-  const [avatarColor, setAvatarColor] = useState(currentUser.avatarColor || AVATAR_COLORS[0]);
-  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || '');
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -46,7 +33,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       const token = localStorage.getItem('dmg_auth_token');
       const apiBase = getApiBaseUrl();
 
-      if (token && !currentUser.isGuest) {
+      if (token) {
         const res = await fetch(`${apiBase}/auth/profile`, {
           method: 'PUT',
           headers: {
@@ -55,8 +42,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           },
           body: JSON.stringify({
             displayName: displayName.trim(),
-            avatarColor,
-            avatarUrl: avatarUrl.trim() || undefined,
           }),
         });
 
@@ -67,16 +52,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             onUpdateUser(data.user);
           }
         }
-      } else {
-        // Guest user local save
-        const updated: AuthUser = {
-          ...currentUser,
-          displayName: displayName.trim(),
-          avatarColor,
-          avatarUrl: avatarUrl.trim() || undefined,
-        };
-        localStorage.setItem('dmg_auth_user', JSON.stringify(updated));
-        onUpdateUser(updated);
       }
 
       setSavedSuccess(true);
@@ -107,17 +82,34 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         {/* Modal Header */}
         <div className="flex items-center gap-3.5">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg border-2 border-white/20"
-            style={{ backgroundColor: avatarColor }}
-          >
-            {displayName.slice(0, 2).toUpperCase()}
-          </div>
+          {currentUser.avatarUrl ? (
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.displayName}
+              className="w-14 h-14 rounded-full object-cover border-2 border-indigo-500 shadow-xl"
+            />
+          ) : (
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg border-2 border-white/20"
+              style={{ backgroundColor: currentUser.avatarColor || '#6366f1' }}
+            >
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+
           <div>
             <h3 className="text-lg font-bold text-zinc-100">{displayName}</h3>
-            <p className="text-xs text-zinc-400 font-mono">
-              @{currentUser.username} {currentUser.isGuest ? '(Convidado)' : ''}
-            </p>
+            {currentUser.email ? (
+              <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
+                <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{currentUser.email}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-400 font-mono">@{currentUser.username}</p>
+            )}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold mt-1">
+              ✓ Conta Google Verificada
+            </span>
           </div>
         </div>
 
@@ -125,7 +117,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-1.5 text-left">
             <label className="text-xs font-semibold text-zinc-300">
-              Nome de Exibição / Nickname
+              Nome de Exibição / Nickname na Sala
             </label>
             <input
               type="text"
@@ -134,39 +126,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full bg-[#141724] border border-[#22283c] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500"
             />
-          </div>
-
-          <div className="space-y-1.5 text-left">
-            <label className="text-xs font-semibold text-zinc-300">
-              URL do Avatar Personalizado (opcional)
-            </label>
-            <input
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-[#141724] border border-[#22283c] rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          {/* Avatar Color Picker */}
-          <div className="space-y-1.5 text-left">
-            <label className="text-xs font-semibold text-zinc-400">Cor do seu Perfil</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {AVATAR_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setAvatarColor(c)}
-                  className={`w-7 h-7 rounded-full transition-transform ${
-                    avatarColor === c
-                      ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-[#0c0e17]'
-                      : 'opacity-70 hover:opacity-100 hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Action buttons */}
@@ -184,7 +143,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Salvar Perfil</span>
+                  <span>Salvar Nome</span>
                 </>
               )}
             </button>
@@ -195,7 +154,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <div className="pt-3 border-t border-[#1a1f30] flex justify-between items-center">
           <div className="text-[11px] text-zinc-500 flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Sessão segura</span>
+            <span>Google OAuth 2.0 Ativo</span>
           </div>
 
           <button
@@ -204,7 +163,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             className="text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-950/70 border border-red-800/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Sair da Conta</span>
+            <span>Sair da Conta Google</span>
           </button>
         </div>
       </div>

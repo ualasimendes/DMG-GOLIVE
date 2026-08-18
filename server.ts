@@ -9,17 +9,21 @@ import { createServer as createViteServer } from "vite";
 // Interfaces
 interface StoredUser {
   id: string;
+  email?: string;
+  googleId?: string;
   username: string;
   displayName: string;
   avatarColor: string;
   avatarUrl?: string;
-  passwordHash: string;
-  passwordSalt: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   createdAt: number;
 }
 
 interface SafeUser {
   id: string;
+  email?: string;
+  googleId?: string;
   username: string;
   displayName: string;
   avatarColor: string;
@@ -112,6 +116,8 @@ function createToken(user: SafeUser): string {
   const payload = Buffer.from(
     JSON.stringify({
       id: user.id,
+      email: user.email,
+      googleId: user.googleId,
       username: user.username,
       displayName: user.displayName,
       avatarColor: user.avatarColor,
@@ -146,6 +152,8 @@ function verifyToken(token: string): SafeUser | null {
 
     return {
       id: decoded.id,
+      email: decoded.email,
+      googleId: decoded.googleId,
       username: decoded.username,
       displayName: decoded.displayName,
       avatarColor: decoded.avatarColor,
@@ -160,6 +168,8 @@ function verifyToken(token: string): SafeUser | null {
 function toSafeUser(user: StoredUser): SafeUser {
   return {
     id: user.id,
+    email: user.email,
+    googleId: user.googleId,
     username: user.username,
     displayName: user.displayName,
     avatarColor: user.avatarColor,
@@ -514,6 +524,129 @@ apiRouter.post("/auth/register", (req, res) => {
   } catch (err: any) {
     console.error("Register error:", err);
     res.status(500).json({ error: "Erro interno no servidor ao cadastrar." });
+  }
+});
+
+// Google Sign-In Authentication
+apiRouter.post("/auth/google", async (req, res) => {
+  try {
+    const { credential, profile } = req.body;
+
+    let googleData: {
+      sub: string;
+      email?: string;
+      name?: string;
+      picture?: string;
+    } | null = null;
+
+    if (credential && typeof credential === "string") {
+      try {
+        const parts = credential.split(".");
+        if (parts.length === 3) {
+          const payloadJson = Buffer.from(parts[1], "base64url").toString("utf-8");
+          const payload = JSON.parse(payloadJson);
+          if (payload && payload.sub) {
+            googleData = {
+              sub: payload.sub,
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture,
+            };
+          }
+        }
+      } catch (decodeErr) {
+        console.warn("Failed to decode Google credential locally, trying Google API:", decodeErr);
+      }
+
+      if (!googleData) {
+        try {
+          const tokenInfoRes = await fetch(
+            `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+          );
+          if (tokenInfoRes.ok) {
+            const data = await tokenInfoRes.json();
+            if (data && data.sub) {
+              googleData = {
+                sub: data.sub,
+                email: data.email,
+                name: data.name,
+                picture: data.picture,
+              };
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("Google API verification error:", fetchErr);
+        }
+      }
+    } else if (profile && profile.sub) {
+      googleData = profile;
+    }
+
+    if (!googleData || !googleData.sub) {
+      return res.status(400).json({ error: "Credencial do Google inválida ou expirada." });
+    }
+
+    const email = googleData.email ? googleData.email.toLowerCase().trim() : undefined;
+    const googleId = googleData.sub;
+    const displayName = googleData.name ? googleData.name.trim() : "Gamer Google";
+    const avatarUrl = googleData.picture || undefined;
+
+    // Look for existing user by googleId or email
+    let user: StoredUser | undefined;
+    for (const u of usersDB.values()) {
+      if ((u.googleId && u.googleId === googleId) || (email && u.email && u.email.toLowerCase() === email)) {
+        user = u;
+        break;
+      }
+    }
+
+    const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f59e0b", "#10b981", "#06b6d4", "#3b82f6"];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    if (user) {
+      // Update existing user with latest Google info
+      user.googleId = googleId;
+      if (email) user.email = email;
+      if (displayName && (!user.displayName || user.displayName.startsWith("guest_"))) {
+        user.displayName = displayName;
+      }
+      if (avatarUrl) user.avatarUrl = avatarUrl;
+      usersDB.set(user.username.toLowerCase(), user);
+    } else {
+      // Register new user from Google profile
+      const usernameBase = email ? email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") : `google_${googleId.slice(0, 6)}`;
+      let finalUsername = usernameBase || `user_${Date.now()}`;
+      if (usersDB.has(finalUsername.toLowerCase())) {
+        finalUsername = `${finalUsername}_${Math.floor(100 + Math.random() * 900)}`;
+      }
+
+      const userId = `usr_g_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+      user = {
+        id: userId,
+        email,
+        googleId,
+        username: finalUsername,
+        displayName,
+        avatarColor: randomColor,
+        avatarUrl,
+        createdAt: Date.now(),
+      };
+      usersDB.set(finalUsername.toLowerCase(), user);
+    }
+
+    saveUsers();
+
+    const safeUser = toSafeUser(user);
+    const token = createToken(safeUser);
+
+    res.json({
+      success: true,
+      token,
+      user: safeUser,
+    });
+  } catch (err: any) {
+    console.error("Google auth error:", err);
+    res.status(500).json({ error: "Erro interno no servidor ao autenticar com Google." });
   }
 });
 

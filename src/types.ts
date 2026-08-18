@@ -1,15 +1,18 @@
 export interface AuthUser {
   id: string;
+  email?: string;
   username: string;
   displayName: string;
   avatarUrl?: string;
   avatarColor: string;
+  googleId?: string;
   createdAt: number;
   isGuest?: boolean;
 }
 
 export interface UserProfile {
   id: string;
+  email?: string;
   name: string;
   avatar?: string;
   avatarColor?: string;
