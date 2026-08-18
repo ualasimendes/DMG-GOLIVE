@@ -1,10 +1,10 @@
 import React from 'react';
-import { Plus, Settings, Volume2, ShieldAlert, Monitor, Sparkles, User as UserIcon, FolderGit2, ExternalLink } from 'lucide-react';
+import { Plus, Settings, Volume2, ShieldAlert, Monitor, Sparkles, User as UserIcon, FolderGit2, ExternalLink, LogIn } from 'lucide-react';
 import { WalaceLogo } from './WalaceLogo';
 import { AuthUser } from '../types';
 
 interface SidebarProps {
-  currentUser: AuthUser;
+  currentUser: AuthUser | null;
   activeRoomId: string;
   onOpenCreateRoom: () => void;
   onOpenSettings: () => void;
@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <WalaceLogo size="md" />
         </button>
         <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-          DMG Live Share (live.walacemendes.com.br)
+          DMG Live Share
         </div>
       </div>
 
@@ -130,32 +130,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Current User Avatar & Profile Modal Trigger */}
         <div className="group relative">
-          <button
-            id="btn-profile-sidebar"
-            onClick={onOpenProfile}
-            className="relative rounded-full focus:outline-none transition-transform hover:scale-105 active:scale-95"
-            title="Meu Perfil / Conta"
-          >
-            {currentUser.avatarUrl ? (
-              <img
-                src={currentUser.avatarUrl}
-                alt={currentUser.displayName}
-                className="w-10 h-10 rounded-full object-cover border-2 border-[#23293d] bg-zinc-800"
-              />
-            ) : (
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md border-2 border-white/20"
-                style={{ backgroundColor: currentUser.avatarColor || '#6366f1' }}
-              >
-                {(currentUser.displayName || currentUser.username).slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#08090f] rounded-full ring-1 ring-emerald-500/30" />
-          </button>
+          {currentUser ? (
+            <button
+              id="btn-profile-sidebar"
+              onClick={onOpenProfile}
+              className="relative rounded-full focus:outline-none transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              title="Meu Perfil Google"
+            >
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.displayName}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 bg-zinc-800"
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md border-2 border-white/20"
+                  style={{ backgroundColor: currentUser.avatarColor || '#6366f1' }}
+                >
+                  {(currentUser.displayName || currentUser.username).slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#08090f] rounded-full ring-1 ring-emerald-500/30" />
+            </button>
+          ) : (
+            <button
+              onClick={onOpenProfile}
+              className="w-10 h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 flex items-center justify-center text-zinc-300 transition-colors cursor-pointer"
+              title="Fazer Login com Google"
+            >
+              <LogIn className="w-4 h-4" />
+            </button>
+          )}
 
           <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-            <div className="font-semibold text-zinc-200">{currentUser.displayName || currentUser.username}</div>
-            <div className="text-[10px] text-emerald-400">🟢 Online • Editar perfil</div>
+            <div className="font-semibold text-zinc-200">
+              {currentUser ? (currentUser.displayName || currentUser.username) : 'Não conectado'}
+            </div>
+            <div className="text-[10px] text-emerald-400">
+              {currentUser ? '🟢 Conta Google Ativa' : 'Clique para Fazer Login'}
+            </div>
           </div>
         </div>
       </div>

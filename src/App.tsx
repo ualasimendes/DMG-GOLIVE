@@ -14,15 +14,6 @@ import { AuthUser, UserProfile } from './types';
 import { Check, AlertCircle } from 'lucide-react';
 import { getApiBaseUrl } from './utils/api';
 
-const DEFAULT_GUEST_USER: AuthUser = {
-  id: `guest_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
-  username: `gamer_${Math.floor(1000 + Math.random() * 9000)}`,
-  displayName: 'Gamer Convidado',
-  avatarColor: '#6366f1',
-  createdAt: Date.now(),
-  isGuest: true,
-};
-
 export default function App() {
   // Navigation & Room State
   const [currentView, setCurrentView] = useState<'landing' | 'room'>('landing');
@@ -38,13 +29,25 @@ export default function App() {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // User Profile
-  const [currentUser, setCurrentUser] = useState<AuthUser>(() => {
+  // User Profile: strictly null if unauthenticated (no generic guest fallback)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     try {
       const saved = localStorage.getItem('dmg_auth_user');
-      if (saved) return JSON.parse(saved);
+      const token = localStorage.getItem('dmg_auth_token');
+      if (saved && token && !token.startsWith('guest_')) {
+        const parsed = JSON.parse(saved);
+        if (parsed && !parsed.isGuest && (parsed.email || parsed.googleId)) {
+          return parsed;
+        }
+      }
     } catch {}
-    return DEFAULT_GUEST_USER;
+
+    // Clear legacy guest tokens from browser storage
+    try {
+      localStorage.removeItem('dmg_auth_user');
+      localStorage.removeItem('dmg_auth_token');
+    } catch {}
+    return null;
   });
 
   // Recent Rooms
@@ -74,6 +77,10 @@ export default function App() {
           if (data && data.success && data.user) {
             setCurrentUser(data.user);
             localStorage.setItem('dmg_auth_user', JSON.stringify(data.user));
+          } else {
+            setCurrentUser(null);
+            localStorage.removeItem('dmg_auth_user');
+            localStorage.removeItem('dmg_auth_token');
           }
         })
         .catch(() => {});
@@ -88,7 +95,15 @@ export default function App() {
       const cleanId = roomParam.toLowerCase().trim().replace(/\s+/g, '-');
       setRoomId(cleanId);
       setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
-      setCurrentView('room');
+
+      // If authenticated, enter room directly; otherwise prompt login
+      const token = localStorage.getItem('dmg_auth_token');
+      if (token && !token.startsWith('guest_')) {
+        setCurrentView('room');
+      } else {
+        setIsAuthModalOpen(true);
+        showToast('Faça login com sua Conta Google para acessar a sala.');
+      }
 
       setRecentRooms((prev) => {
         const next = [{ id: cleanId, name: cleanId.replace(/-/g, ' ').toUpperCase() }, ...prev.filter((r) => r.id !== cleanId)];
@@ -100,10 +115,10 @@ export default function App() {
 
   const webrtcUser = useMemo(
     () => ({
-      id: currentUser.id,
-      name: currentUser.displayName || currentUser.username,
-      avatar: currentUser.avatarUrl,
-      avatarColor: currentUser.avatarColor,
+      id: currentUser ? currentUser.id : `usr_${Date.now()}`,
+      name: currentUser ? (currentUser.displayName || currentUser.username) : 'Visitante',
+      avatar: currentUser?.avatarUrl,
+      avatarColor: currentUser?.avatarColor || '#6366f1',
     }),
     [currentUser]
   );
@@ -131,14 +146,14 @@ export default function App() {
     stopScreenShare,
     sendMessage,
     sendReaction,
-  } = useWebRTC(currentView === 'room' ? roomId : '', webrtcUser);
+  } = useWebRTC(currentView === 'room' && !!currentUser ? roomId : '', webrtcUser);
 
   // Automatically start microphone when joining room
   useEffect(() => {
-    if (currentView === 'room' && isConnected) {
+    if (currentView === 'room' && isConnected && currentUser) {
       startMicrophone().catch(() => {});
     }
-  }, [currentView, isConnected]);
+  }, [currentView, isConnected, currentUser]);
 
   // Transform remoteStreams into list of streamers
   const allStreamers = useMemo(() => {
@@ -154,7 +169,7 @@ export default function App() {
       isLocal: false,
     }));
 
-    if (isStreaming && localScreenStream) {
+    if (isStreaming && localScreenStream && currentUser) {
       list.unshift({
         id: currentUser.id,
         name: `${currentUser.displayName || currentUser.username} (Você)`,
@@ -197,12 +212,14 @@ export default function App() {
       isHost: u.id === users[0]?.id,
     }));
 
-    const meInList = list.find((u) => u.id === currentUser.id);
-    if (meInList) {
-      meInList.isStreaming = isStreaming;
-      meInList.isSpeaking = isLocalSpeaking;
-      meInList.isMuted = isMuted;
-      meInList.isDeaf = isDeaf;
+    if (currentUser) {
+      const meInList = list.find((u) => u.id === currentUser.id);
+      if (meInList) {
+        meInList.isStreaming = isStreaming;
+        meInList.isSpeaking = isLocalSpeaking;
+        meInList.isMuted = isMuted;
+        meInList.isDeaf = isDeaf;
+      }
     }
 
     return list;
@@ -210,7 +227,7 @@ export default function App() {
 
   // Handlers
   const handleCreateAndJoin = (name: string, id: string) => {
-    if (currentUser.isGuest) {
+    if (!currentUser) {
       setIsAuthModalOpen(true);
       showToast('Faça login com sua Conta Google para criar uma sala.');
       return;
@@ -234,7 +251,7 @@ export default function App() {
   };
 
   const handleJoinByCode = (code: string) => {
-    if (currentUser.isGuest) {
+    if (!currentUser) {
       setIsAuthModalOpen(true);
       showToast('Faça login com sua Conta Google para entrar na sala.');
       return;
@@ -257,7 +274,7 @@ export default function App() {
   };
 
   const handleSelectRecentRoom = (id: string) => {
-    if (currentUser.isGuest) {
+    if (!currentUser) {
       setIsAuthModalOpen(true);
       showToast('Faça login com sua Conta Google para entrar.');
       return;
@@ -324,8 +341,9 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('dmg_auth_token');
     localStorage.removeItem('dmg_auth_user');
-    setCurrentUser(DEFAULT_GUEST_USER);
+    setCurrentUser(null);
     setIsProfileModalOpen(false);
+    setCurrentView('landing');
     showToast('Você saiu da sua conta.');
   };
 
@@ -345,7 +363,7 @@ export default function App() {
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onOpenProfileModal={() => setIsProfileModalOpen(true)}
           onOpenCreateModal={() => {
-            if (currentUser.isGuest) {
+            if (!currentUser) {
               setIsAuthModalOpen(true);
               showToast('Faça login com sua Conta Google para criar uma sala.');
             } else {
@@ -353,7 +371,7 @@ export default function App() {
             }
           }}
           onJoinRoom={(code) => {
-            if (currentUser.isGuest) {
+            if (!currentUser) {
               setIsAuthModalOpen(true);
               showToast('Faça login com sua Conta Google para entrar.');
             } else {
@@ -373,7 +391,7 @@ export default function App() {
               currentUser={currentUser}
               activeRoomId={roomId}
               onOpenCreateRoom={() => {
-                if (currentUser.isGuest) {
+                if (!currentUser) {
                   setIsAuthModalOpen(true);
                   showToast('Faça login com sua Conta Google para criar salas.');
                 } else {
@@ -381,7 +399,7 @@ export default function App() {
                 }
               }}
               onOpenSettings={() => setIsSettingsModalOpen(true)}
-              onOpenProfile={() => (currentUser.isGuest ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true))}
+              onOpenProfile={() => (!currentUser ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true))}
               recentRooms={recentRooms}
               onSelectRoom={handleSelectRecentRoom}
             />
@@ -396,7 +414,7 @@ export default function App() {
               onStartShare={handleToggleScreenShare}
               streamQuality={streamQuality}
               roomName={roomName || roomId}
-              currentUserId={currentUser.id}
+              currentUserId={currentUser ? currentUser.id : ''}
               remoteStreams={remoteStreams}
             />
 
@@ -405,7 +423,7 @@ export default function App() {
               roomName={roomName || roomId}
               roomId={roomId}
               participants={participants}
-              currentUserId={currentUser.id}
+              currentUserId={currentUser ? currentUser.id : ''}
               messages={messages}
               onSendMessage={sendMessage}
               onSendReaction={sendReaction}
@@ -439,16 +457,18 @@ export default function App() {
         }}
       />
 
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        currentUser={currentUser}
-        onUpdateUser={(updated) => {
-          setCurrentUser(updated);
-          showToast('Perfil atualizado com sucesso!');
-        }}
-        onLogout={handleLogout}
-      />
+      {currentUser && (
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          currentUser={currentUser}
+          onUpdateUser={(updated) => {
+            setCurrentUser(updated);
+            showToast('Perfil atualizado com sucesso!');
+          }}
+          onLogout={handleLogout}
+        />
+      )}
 
       <CreateRoomModal
         isOpen={isCreateModalOpen}

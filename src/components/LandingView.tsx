@@ -8,18 +8,16 @@ import {
   Zap,
   Volume2,
   Lock,
-  Sparkles,
   FolderGit2,
   ExternalLink,
   ShieldAlert,
-  AlertTriangle,
-  Info,
+  LogIn,
 } from 'lucide-react';
 import { AuthUser } from '../types';
 import { WalaceLogo } from './WalaceLogo';
 
 interface LandingViewProps {
-  currentUser: AuthUser;
+  currentUser: AuthUser | null;
   onOpenCreateModal: () => void;
   onJoinRoom: (roomId: string) => void;
   onOpenAuthModal: () => void;
@@ -39,7 +37,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const [joinCode, setJoinCode] = useState('');
 
-  const isLoggedIn = !currentUser.isGuest;
+  const isLoggedIn = !!currentUser;
 
   const handleCreateClick = () => {
     if (!isLoggedIn) {
@@ -92,7 +90,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           </a>
 
           {/* Google Auth / Profile Button */}
-          {!isLoggedIn ? (
+          {!currentUser ? (
             <button
               onClick={onOpenAuthModal}
               id="btn-landing-login-google"
@@ -104,7 +102,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
                 <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
               </svg>
-              <span>Entrar com Google</span>
+              <span>Fazer Login com Google</span>
             </button>
           ) : (
             <button
@@ -172,47 +170,62 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <div className="w-full bg-[#0d0f19] border border-[#1e2336] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
           {/* User Status Bar */}
           <div className="flex items-center justify-between bg-[#131624] p-3 rounded-xl border border-[#22283e]">
-            <div className="flex items-center gap-2.5">
-              {currentUser.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt={currentUser.displayName}
-                  className="w-8 h-8 rounded-full object-cover border border-indigo-500"
-                />
-              ) : (
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow"
-                  style={{ backgroundColor: currentUser.avatarColor || '#6366f1' }}
-                >
-                  {(currentUser.displayName || currentUser.username).slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              <div className="text-left">
-                <div className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
-                  <span>{currentUser.displayName || currentUser.username}</span>
-                  {isLoggedIn && (
-                    <span className="text-[10px] text-emerald-400 font-normal">● Verificado</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-zinc-400">
-                  {isLoggedIn ? (currentUser.email || 'Conta Google') : 'Faça login para criar salas'}
+            {currentUser ? (
+              <div className="flex items-center gap-2.5">
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.displayName}
+                    className="w-8 h-8 rounded-full object-cover border border-indigo-500"
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow"
+                    style={{ backgroundColor: currentUser.avatarColor || '#6366f1' }}
+                  >
+                    {(currentUser.displayName || currentUser.username).slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="text-left">
+                  <div className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
+                    <span>{currentUser.displayName || currentUser.username}</span>
+                    <span className="text-[10px] text-emerald-400 font-normal">● Conectado</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400">
+                    {currentUser.email || 'Conta Google'}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <div className="text-xs font-bold text-zinc-300">
+                    Não conectado
+                  </div>
+                  <div className="text-[10px] text-zinc-500">
+                    Faça login com sua Conta Google
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {!isLoggedIn ? (
+            {!currentUser ? (
               <button
                 onClick={onOpenAuthModal}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer"
+                className="text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-bold transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center gap-1.5"
               >
-                Fazer Login
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Entrar</span>
               </button>
             ) : (
               <button
                 onClick={onOpenProfileModal}
                 className="text-[11px] text-zinc-400 hover:text-zinc-200 font-medium transition-colors cursor-pointer"
               >
-                Editar
+                Meu Perfil
               </button>
             )}
           </div>
