@@ -673,7 +673,10 @@ async function start() {
   } else {
     console.log("No pre-built dist found, starting with Vite middleware...");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
