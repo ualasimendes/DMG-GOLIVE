@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { User, ChatMessage, StreamQuality, AudioSettings, PeerStreamData } from '../types';
-import { soundEngine, createAudioLevelDetector } from '../utils/audio';
+import { createAudioLevelDetector } from '../utils/audio';
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
@@ -39,11 +39,11 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
   const [hasCamera, setHasCamera] = useState(false);
   const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
 
-  // Quality Preset
+  // Quality & Audio settings
   const [streamQuality, setStreamQuality] = useState<StreamQuality>({
     resolution: '1080p',
     fps: 60,
-    bitrate: '8500 kbps',
+    bitrate: '8000 Kbps',
     latencyMs: 12,
   });
 
@@ -52,7 +52,7 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
     selectedAudioOutputId: 'default',
     echoCancellation: true,
     noiseSuppression: true,
-    autoGainControl: false,
+    autoGainControl: true,
     systemAudioEnabled: true,
     micAudioEnabled: true,
     micVolume: 100,
@@ -65,7 +65,11 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
   const speakingCleanupsRef = useRef<Map<string, () => void>>(new Map());
   const localMicStreamRef = useRef<MediaStream | null>(null);
   const localScreenStreamRef = useRef<MediaStream | null>(null);
+  const userRef = useRef<WebRTCUserProps>(user);
+  const usersRef = useRef<User[]>(users);
 
+  userRef.current = user;
+  usersRef.current = users;
   localMicStreamRef.current = localMicStream;
   localScreenStreamRef.current = localScreenStream;
 
@@ -136,7 +140,7 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
 
         setRemoteStreams((prev) => {
           const next = new Map(prev);
-          const remoteUser = users.find((u) => u.id === targetUserId);
+          const remoteUser = usersRef.current.find((u) => u.id === targetUserId);
           next.set(targetUserId, {
             userId: targetUserId,
             userName: remoteUser?.name || `Gamer-${targetUserId.slice(0, 4)}`,
@@ -188,7 +192,7 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
 
       return pc;
     },
-    [attachLocalTracksToPC, users]
+    [attachLocalTracksToPC]
   );
 
   // Handle incoming signaling messages
@@ -271,12 +275,11 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
     });
   }, []);
 
-  // WebSocket signaling setup
+  // WebSocket signaling setup (connects ONCE per roomId/userId)
   useEffect(() => {
     if (!roomId || !user.id) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Match subpath if running under /dmg-live-share
     const pathname = window.location.pathname;
     const basePath = pathname.includes('/dmg-live-share') ? '/dmg-live-share' : '';
     const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
@@ -288,18 +291,19 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
       }
-    }, 3000);
+    }, 4000);
 
     ws.onopen = () => {
       setIsConnected(true);
+      const currentUser = userRef.current;
       ws.send(
         JSON.stringify({
           type: 'join-room',
           roomId,
-          userId: user.id,
-          name: user.name,
-          avatar: user.avatar,
-          avatarColor: user.avatarColor,
+          userId: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.avatar,
+          avatarColor: currentUser.avatarColor,
         })
       );
     };
@@ -321,7 +325,6 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
           case 'room-joined': {
             setUsers(data.users || []);
             setMessages(data.messages || []);
-            soundEngine.playJoin();
             break;
           }
 
@@ -331,7 +334,6 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
               if (prev.some((u) => u.id === newUser.id)) return prev;
               return [...prev, newUser];
             });
-            soundEngine.playJoin();
 
             // Initiate WebRTC offer to new user
             createPeerConnection(newUser.id, true);
@@ -350,7 +352,6 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
               next.delete(data.userId);
               return next;
             });
-            soundEngine.playLeave();
             break;
           }
 
@@ -364,14 +365,10 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
 
           case 'chat-message': {
             setMessages((prev) => [...prev, data.message]);
-            if (data.message.senderId !== user.id && data.message.type !== 'system') {
-              soundEngine.playMessagePing();
-            }
             break;
           }
 
           case 'reaction-received': {
-            // Forward reaction
             break;
           }
 
@@ -403,7 +400,7 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
       speakingCleanupsRef.current.forEach((cleanup) => cleanup());
       speakingCleanupsRef.current.clear();
     };
-  }, [roomId, user.id, user.name, user.avatar, user.avatarColor, createPeerConnection, handleSignalingData]);
+  }, [roomId, user.id, createPeerConnection, handleSignalingData]);
 
   // Start Microphone
   const startMicrophone = useCallback(async () => {
@@ -422,194 +419,202 @@ export function useWebRTC(roomId: string, user: WebRTCUserProps) {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalMicStream(stream);
 
-      // Attach track to all existing peer connections
-      const audioTrack = stream.getAudioTracks()[0];
-      peerConnectionsRef.current.forEach((pc) => {
-        const senders = pc.getSenders();
-        const existingAudioSender = senders.find((s) => s.track?.kind === 'audio');
-        if (existingAudioSender) {
-          existingAudioSender.replaceTrack(audioTrack);
-        } else {
-          pc.addTrack(audioTrack, stream);
+      // Speaking detector for local microphone
+      const stopLocalDetect = createAudioLevelDetector(stream, (speaking) => {
+        setIsLocalSpeaking(speaking);
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({
+              type: 'update-status',
+              isSpeaking: speaking,
+            })
+          );
         }
       });
 
-      // Local speaking detector
-      createAudioLevelDetector(stream, (speaking) => {
-        setIsLocalSpeaking(speaking && !isMuted);
+      // Update all active peer connections with new microphone track
+      stream.getAudioTracks().forEach((track) => {
+        peerConnectionsRef.current.forEach((pc) => {
+          const senders = pc.getSenders();
+          const existing = senders.find((s) => s.track?.kind === 'audio');
+          if (existing) {
+            existing.replaceTrack(track).catch(() => {});
+          } else {
+            pc.addTrack(track, stream);
+          }
+        });
       });
 
       renegotiateAllPeers();
-      return stream;
+      return () => stopLocalDetect();
     } catch (err) {
-      console.warn('Microphone permission denied or not available:', err);
-      return null;
+      console.warn('Microphone error:', err);
+      throw err;
     }
-  }, [audioSettings, isMuted, renegotiateAllPeers]);
+  }, [audioSettings, renegotiateAllPeers]);
 
   // Toggle Mute
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (localMicStreamRef.current) {
-        localMicStreamRef.current.getAudioTracks().forEach((track) => {
-          track.enabled = !next;
-        });
-      }
-      if (next) {
-        soundEngine.playMute();
-      } else {
-        soundEngine.playUnmute();
-      }
+    if (localMicStream) {
+      const newMuted = !isMuted;
+      localMicStream.getAudioTracks().forEach((track) => {
+        track.enabled = !newMuted;
+      });
+      setIsMuted(newMuted);
 
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
             type: 'update-status',
-            isMuted: next,
+            isMuted: newMuted,
           })
         );
       }
-      return next;
-    });
-  }, []);
+    }
+  }, [localMicStream, isMuted]);
 
-  // Toggle Deafen (mute incoming audio + mute self)
+  // Toggle Deafen
   const toggleDeafen = useCallback(() => {
-    setIsDeaf((prev) => {
-      const next = !prev;
-      if (next) {
-        soundEngine.playMute();
-      } else {
-        soundEngine.playUnmute();
+    const newDeaf = !isDeaf;
+    setIsDeaf(newDeaf);
+
+    if (localMicStream) {
+      localMicStream.getAudioTracks().forEach((track) => {
+        track.enabled = !newDeaf && !isMuted;
+      });
+    }
+
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'update-status',
+          isDeaf: newDeaf,
+        })
+      );
+    }
+  }, [isDeaf, isMuted, localMicStream]);
+
+  // Start Screen Sharing
+  const startScreenShare = useCallback(async () => {
+    try {
+      const constraints: DisplayMediaStreamOptions = {
+        video: {
+          displaySurface: 'monitor',
+          frameRate: { ideal: 60, max: 60 },
+          width: { ideal: 1920, max: 2560 },
+          height: { ideal: 1080, max: 1440 },
+        },
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 2,
+        },
+      };
+
+      const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+
+      // Enhance motion smoothness hint
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && 'contentHint' in videoTrack) {
+        (videoTrack as any).contentHint = 'motion';
       }
+
+      setLocalScreenStream(stream);
+      setIsStreaming(true);
+
+      // Notify WebSocket room
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
             type: 'update-status',
-            isDeaf: next,
+            isStreaming: true,
+            streamTitle: 'Gameplay Ao Vivo',
           })
         );
       }
-      return next;
-    });
-  }, []);
+
+      // Add screen tracks to all peer connections
+      stream.getTracks().forEach((track) => {
+        peerConnectionsRef.current.forEach((pc) => {
+          pc.addTrack(track, stream);
+        });
+      });
+
+      renegotiateAllPeers();
+
+      // Handle user stopping screen share from browser banner
+      stream.getVideoTracks()[0].onended = () => {
+        stopScreenShare();
+      };
+    } catch (err) {
+      console.warn('Screen share error or cancelled:', err);
+      throw err;
+    }
+  }, [renegotiateAllPeers]);
 
   // Stop Screen Share
   const stopScreenShare = useCallback(() => {
-    if (localScreenStreamRef.current) {
-      localScreenStreamRef.current.getTracks().forEach((track) => track.stop());
+    if (localScreenStream) {
+      localScreenStream.getTracks().forEach((track) => track.stop());
       setLocalScreenStream(null);
     }
     setIsStreaming(false);
-
-    // Remove video tracks from peer connections
-    peerConnectionsRef.current.forEach((pc) => {
-      const senders = pc.getSenders();
-      senders.forEach((sender) => {
-        if (sender.track && sender.track.kind === 'video') {
-          try {
-            pc.removeTrack(sender);
-          } catch (e) {
-            console.warn('Error removing track:', e);
-          }
-        }
-      });
-    });
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
           type: 'update-status',
           isStreaming: false,
-          streamTitle: undefined,
+          streamTitle: '',
         })
       );
     }
 
-    renegotiateAllPeers();
-  }, [renegotiateAllPeers]);
-
-  // Start Screen Share (Go Live)
-  const startScreenShare = useCallback(async () => {
-    try {
-      const idealWidth = streamQuality.resolution === '4K' ? 3840 : streamQuality.resolution === '1440p' ? 2560 : 1920;
-      const idealHeight = streamQuality.resolution === '4K' ? 2160 : streamQuality.resolution === '1440p' ? 1440 : 1080;
-
-      const displayMediaOptions: DisplayMediaStreamOptions = {
-        video: {
-          width: { ideal: idealWidth, max: idealWidth },
-          height: { ideal: idealHeight, max: idealHeight },
-          frameRate: { ideal: streamQuality.fps, max: streamQuality.fps },
-        },
-        audio: audioSettings.systemAudioEnabled
-          ? {
-              autoGainControl: false,
-              echoCancellation: false,
-              noiseSuppression: false,
-              channelCount: 2,
-            }
-          : false,
-      };
-
-      const stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
-      setLocalScreenStream(stream);
-      setIsStreaming(true);
-      soundEngine.playGoLive();
-
-      // Optimize video track for smooth gameplay motion
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack && 'contentHint' in videoTrack) {
-        (videoTrack as any).contentHint = 'motion';
-      }
-
-      // Handle user stopping screen share via browser floating bar
-      videoTrack.onended = () => {
-        stopScreenShare();
-      };
-
-      // Add screen tracks to all peer connections
-      peerConnectionsRef.current.forEach((pc) => {
-        stream.getTracks().forEach((track) => {
+    // Remove video senders from peer connections
+    peerConnectionsRef.current.forEach((pc) => {
+      pc.getSenders().forEach((sender) => {
+        if (sender.track?.kind === 'video') {
           try {
-            pc.addTrack(track, stream);
-          } catch (e) {
-            console.warn('Track addition error:', e);
-          }
-        });
+            pc.removeTrack(sender);
+          } catch {}
+        }
       });
+    });
 
-      // Update room status
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: 'update-status',
-            isStreaming: true,
-            streamTitle: `${user.name}'s Screen (${streamQuality.resolution} ${streamQuality.fps}FPS)`,
-          })
-        );
-      }
+    renegotiateAllPeers();
+  }, [localScreenStream, renegotiateAllPeers]);
 
-      renegotiateAllPeers();
-    } catch (err: any) {
-      console.warn('Screen share cancelled or failed:', err);
-    }
-  }, [audioSettings.systemAudioEnabled, renegotiateAllPeers, stopScreenShare, streamQuality.fps, streamQuality.resolution, user.name]);
+  // Send text message in room chat
+  const sendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim() || wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-  // Send Chat Message
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(
-      JSON.stringify({
-        type: 'chat-message',
-        text,
-      })
-    );
-  }, []);
+      const newMsg: ChatMessage = {
+        id: `msg_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        roomId,
+        senderId: user.id,
+        senderName: user.name,
+        senderAvatar: user.avatar,
+        avatarColor: user.avatarColor,
+        text: text.trim(),
+        timestamp: Date.now(),
+        type: 'text',
+      };
 
-  // Send Reaction / Emoji
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'chat-message',
+          message: newMsg,
+        })
+      );
+    },
+    [roomId, user]
+  );
+
+  // Send interactive emoji reaction
   const sendReaction = useCallback((emoji: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(
       JSON.stringify({
         type: 'send-reaction',
