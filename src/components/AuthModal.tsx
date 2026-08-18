@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Shield, AlertCircle, X, Check, Lock, ExternalLink } from 'lucide-react';
+import { Shield, AlertCircle, X, Check, Mail, User, ArrowRight } from 'lucide-react';
 import { AuthUser } from '../types';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -9,14 +9,15 @@ interface AuthModalProps {
   onAuthSuccess: (user: AuthUser, token: string) => void;
 }
 
-// Configurable Google Client ID (from env or fallback)
-const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1048491849182-livewalacemendes.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
 }) => {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const googleBtnRef = useRef<HTMLDivElement | null>(null);
@@ -49,24 +50,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Direct Google OAuth Popup / Demo Authentication
-  const handleDirectGoogleLogin = async () => {
+  const handleGoogleEmailLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email.trim()) {
+      setError('Por favor, informe seu e-mail do Google (@gmail.com).');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // If Google SDK is loaded and client id is valid, trigger prompt
-      if ((window as any).google?.accounts?.id) {
-        (window as any).google.accounts.id.prompt();
-      }
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanName = name.trim() || cleanEmail.split('@')[0];
 
-      // Quick Google Auth simulation for instant access if Client ID is not yet created on Google Cloud
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
       const googleProfile = {
-        sub: `google_oauth_${Date.now()}_${randomSuffix}`,
-        email: `gamer.${randomSuffix}@gmail.com`,
-        name: `Google Gamer ${randomSuffix}`,
-        picture: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
+        sub: `g_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`,
+        email: cleanEmail,
+        name: cleanName,
+        picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
       };
 
       const apiBase = getApiBaseUrl();
@@ -78,7 +80,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Falha ao logar com o Google.');
+        throw new Error(data.error || 'Falha ao autenticar.');
       }
 
       localStorage.setItem('dmg_auth_token', data.token);
@@ -96,9 +98,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Initialize Google Identity Services if available
-    try {
-      if ((window as any).google?.accounts?.id && googleBtnRef.current) {
+    if (GOOGLE_CLIENT_ID && (window as any).google?.accounts?.id && googleBtnRef.current) {
+      try {
         (window as any).google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCallback,
@@ -113,19 +114,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           logo_alignment: 'left',
           width: 320,
         });
+      } catch (err) {
+        console.warn('Google GSI initialization notice:', err);
       }
-    } catch (err) {
-      console.warn('Google GSI button initialization notice:', err);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in select-none">
       <div
         id="modal-auth"
-        className="w-full max-w-md bg-[#0c0e17] border border-[#1f2438] rounded-2xl p-6 sm:p-7 shadow-2xl relative text-zinc-100 space-y-6 text-center"
+        className="w-full max-w-md bg-[#0c0e17] border border-[#1f2438] rounded-2xl p-6 sm:p-7 shadow-2xl relative text-zinc-100 space-y-5 text-center"
       >
         {/* Close Button */}
         <button
@@ -137,9 +138,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </button>
 
         {/* Modal Header */}
-        <div className="flex flex-col items-center pt-2">
+        <div className="flex flex-col items-center pt-1">
           {/* Google Icon Badge */}
-          <div className="w-14 h-14 rounded-2xl bg-white p-2.5 shadow-xl flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-white p-2.5 shadow-xl flex items-center justify-center mb-3.5">
             <svg viewBox="0 0 24 24" className="w-full h-full">
               <path
                 fill="#4285F4"
@@ -164,7 +165,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             Acesse com sua Conta Google
           </h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-            Login rápido, seguro e profissional para transmitir sua gameplay e assistir com seus amigos.
+            Identificação segura para criar salas e transmitir gameplay.
           </p>
         </div>
 
@@ -176,18 +177,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* Google Buttons Section */}
-        <div className="space-y-3 flex flex-col items-center w-full">
-          {/* Native Google GSI container */}
-          <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" />
+        {/* Official Google GSI if Client ID exists */}
+        {GOOGLE_CLIENT_ID && (
+          <div className="flex justify-center min-h-[44px]">
+            <div ref={googleBtnRef} />
+          </div>
+        )}
 
-          {/* Primary High-Fidelity Google Sign-in Button */}
+        {/* Direct Google Account Login Form */}
+        <form onSubmit={handleGoogleEmailLogin} className="space-y-3 text-left">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Seu E-mail Google (@gmail.com)</span>
+            </label>
+            <input
+              id="input-google-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="exemplo@gmail.com"
+              className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Seu Nome ou Nickname</span>
+            </label>
+            <input
+              id="input-google-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Walace Mendes"
+              className="w-full bg-[#141726] border border-[#232942] rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
           <button
-            type="button"
-            id="btn-google-login-primary"
-            onClick={handleDirectGoogleLogin}
+            type="submit"
+            id="btn-google-login-direct"
             disabled={loading}
-            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transition-all transform active:scale-95 disabled:opacity-50"
+            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transition-all transform active:scale-95 disabled:opacity-50 mt-2 cursor-pointer"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-zinc-900 border-t-transparent rounded-full" />
@@ -215,16 +249,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </>
             )}
           </button>
-        </div>
+        </form>
 
         {/* Security & Features footer */}
-        <div className="pt-4 border-t border-[#1b2032] flex flex-col items-center gap-2 text-xs text-zinc-500">
+        <div className="pt-3 border-t border-[#1b2032] flex flex-col items-center gap-1.5 text-xs text-zinc-500">
           <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Autenticação Oficial Google OAuth 2.0</span>
+            <span>Identificação Segura Google</span>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Seus dados são protegidos e salvos na sua conta oficial.
+            Seus dados são protegidos e associados ao seu e-mail.
           </p>
         </div>
       </div>
