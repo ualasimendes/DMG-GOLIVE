@@ -48,6 +48,7 @@ export default function App() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // User Profile: strictly null if unauthenticated
@@ -481,6 +482,8 @@ export default function App() {
               currentUserRole={currentUserRole}
               messages={messages}
               activeYouTubeTrack={activeYouTubeTrack}
+              isMobileOpen={isMobileChatOpen}
+              onCloseMobile={() => setIsMobileChatOpen(false)}
               onSendMessage={sendMessage}
               onSendReaction={sendReaction}
               onSelectStreamer={(id) => setActiveStreamerId(id)}
@@ -499,6 +502,9 @@ export default function App() {
             onToggleShare={handleToggleScreenShare}
             isCameraOn={hasCamera}
             onToggleCamera={() => {}}
+            isChatOpen={isMobileChatOpen}
+            onToggleChat={() => setIsMobileChatOpen((prev) => !prev)}
+            unreadMessagesCount={0}
             onToggleFullscreen={handleToggleFullscreen}
             onLeaveRoom={handleLeaveRoom}
           />

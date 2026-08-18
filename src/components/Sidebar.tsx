@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       <aside
         id="walace-sidebar"
-        className="w-16 md:w-18 bg-[#08090f] border-r border-[#191c28] flex flex-col items-center py-3.5 select-none shrink-0 z-20"
+        className="hidden md:flex w-16 md:w-18 bg-[#08090f] border-r border-[#191c28] flex-col items-center py-3.5 select-none shrink-0 z-20"
       >
         {/* Brand Icon (Home) */}
         <div className="mb-3 group relative flex items-center justify-center">

@@ -96,6 +96,7 @@ export interface PublicRoomInfo {
   name: string;
   isPermanent?: boolean;
   userCount: number;
+  emptyCountdownSecs?: number | null;
   streamingCount: number;
   host?: {
     id: string;

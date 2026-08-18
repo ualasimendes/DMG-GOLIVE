@@ -17,6 +17,7 @@ import {
   Crown,
   Sparkles,
   Flame,
+  Clock,
 } from 'lucide-react';
 import { AuthUser, PublicRoomInfo } from '../types';
 import { WalaceLogo } from './WalaceLogo';
@@ -384,9 +385,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
                               {isPremium ? 'Sala Oficial da Comunidade' : `Dono: ${room.host?.name || 'Anfitrião'}`}
                             </span>
                             <span>•</span>
-                            <span className="text-indigo-300 font-medium">
-                              👥 {room.userCount} {room.userCount === 1 ? 'pessoa' : 'pessoas'}
-                            </span>
+                            {room.emptyCountdownSecs !== null && room.emptyCountdownSecs !== undefined && room.userCount === 0 ? (
+                              <span className="text-amber-400 font-bold animate-pulse flex items-center gap-1 bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-800/60">
+                                <Clock className="w-3 h-3 text-amber-400" />
+                                <span>Fechando em {room.emptyCountdownSecs}s</span>
+                              </span>
+                            ) : (
+                              <span className="text-indigo-300 font-medium">
+                                👥 {room.userCount} {room.userCount === 1 ? 'pessoa' : 'pessoas'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

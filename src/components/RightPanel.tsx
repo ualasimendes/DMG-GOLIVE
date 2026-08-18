@@ -37,6 +37,8 @@ interface RightPanelProps {
     requestedBy: string;
     isPlaying: boolean;
   } | null;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
   onSendMessage: (text: string) => void;
   onSendReaction: (emoji: string) => void;
   onSelectStreamer: (streamerId: string) => void;
@@ -52,6 +54,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   currentUserRole = 'member',
   messages,
   activeYouTubeTrack,
+  isMobileOpen = false,
+  onCloseMobile,
   onSendMessage,
   onSendReaction,
   onSelectStreamer,
@@ -122,47 +126,71 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   };
 
   return (
-    <aside
-      id="walace-right-panel"
-      className="w-72 lg:w-84 bg-[#0c0d16] border-l border-[#1b1e2a] flex flex-col h-full shrink-0 select-none z-10 font-roboto"
-    >
-      {/* Header with Room Info */}
-      <div className="p-3.5 border-b border-[#1b1e2a] bg-[#0e101b]">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Sala:
-            </span>
-            <span className="text-sm font-bold text-zinc-100 truncate font-mono">
-              {roomName}
-            </span>
-          </div>
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
+        />
+      )}
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isCallerAdmin1 && (
-              <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[10px] font-black tracking-wider uppercase shadow-sm flex items-center gap-1">
-                <Crown className="w-3 h-3" />
-                ADMIN 1
+      <aside
+        id="walace-right-panel"
+        className={`
+          fixed inset-y-0 right-0 z-50 w-full sm:w-84 md:static md:w-72 lg:w-84
+          bg-[#0c0d16] border-l border-[#1b1e2a] flex flex-col h-full shrink-0 select-none font-roboto shadow-2xl md:shadow-none
+          transition-transform duration-300 ease-in-out
+          ${isMobileOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0 md:flex'}
+          ${!isMobileOpen ? 'hidden md:flex' : 'flex'}
+        `}
+      >
+        {/* Header with Room Info */}
+        <div className="p-3.5 border-b border-[#1b1e2a] bg-[#0e101b]">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                Sala:
               </span>
-            )}
-            {isCallerAdmin2 && (
-              <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-bold tracking-wider uppercase shadow-sm flex items-center gap-1">
-                <Shield className="w-3 h-3" />
-                ADMIN 2
+              <span className="text-sm font-bold text-zinc-100 truncate font-mono">
+                {roomName}
               </span>
-            )}
+            </div>
 
-            {isCallerAdmin1 && onCloseRoom && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isCallerAdmin1 && (
+                <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-600 text-white text-[10px] font-black tracking-wider uppercase shadow-sm flex items-center gap-1">
+                  <Crown className="w-3 h-3" />
+                  ADMIN 1
+                </span>
+              )}
+              {isCallerAdmin2 && (
+                <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-bold tracking-wider uppercase shadow-sm flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  ADMIN 2
+                </span>
+              )}
+
+              {isCallerAdmin1 && onCloseRoom && (
+                <button
+                  onClick={() => setShowConfirmDelete(true)}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-800/50 transition-colors cursor-pointer"
+                  title="Excluir / Fechar Sala para todos"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Close/Minimize Button for Mobile */}
               <button
-                onClick={() => setShowConfirmDelete(true)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-800/50 transition-colors cursor-pointer"
-                title="Excluir / Fechar Sala para todos"
+                onClick={onCloseMobile}
+                className="md:hidden p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer ml-1"
+                title="Minimizar Chat e Voltar para a Live"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
-            )}
+            </div>
           </div>
-        </div>
 
         {/* Confirmation Banner for Deleting Room */}
         {showConfirmDelete && (
@@ -685,5 +713,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         </div>
       )}
     </aside>
-  );
+  </>
+);
 };

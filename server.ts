@@ -188,6 +188,7 @@ const roomAdminRoles = new Map<string, Map<string, "admin1" | "admin2">>(); // r
 const roomBans = new Map<string, Set<string>>(); // roomId -> Set<userId>
 const roomTimeouts = new Map<string, Map<string, number>>(); // roomId -> Map<userId, expiresAt>
 const roomNames = new Map<string, string>(); // roomId -> Room Name
+const roomDestructionTimers = new Map<string, { expiresAt: number; timer: NodeJS.Timeout }>(); // roomId -> countdown timer
 
 // Super Admin Emails (Strict ADMIN 1 Global Powers)
 const SUPER_ADMIN_EMAILS = ["lacee.mds@gmail.com", "walac@walacemendes.com"];
@@ -198,6 +199,35 @@ roomMessages.set(PERMANENT_ROOM_ID, []);
 roomAdminRoles.set(PERMANENT_ROOM_ID, new Map());
 roomBans.set(PERMANENT_ROOM_ID, new Set());
 roomNames.set(PERMANENT_ROOM_ID, "DMG#PREMIUM");
+
+function scheduleRoomDestruction(roomId: string) {
+  if (roomId === PERMANENT_ROOM_ID) return;
+  if (roomDestructionTimers.has(roomId)) return;
+
+  const expiresAt = Date.now() + 10000; // 10 seconds countdown
+  const timer = setTimeout(() => {
+    const currentRoom = rooms.get(roomId);
+    if (!currentRoom || currentRoom.size === 0) {
+      rooms.delete(roomId);
+      roomMessages.delete(roomId);
+      roomAdminRoles.delete(roomId);
+      roomBans.delete(roomId);
+      roomTimeouts.delete(roomId);
+      roomNames.delete(roomId);
+      roomDestructionTimers.delete(roomId);
+    }
+  }, 10000);
+
+  roomDestructionTimers.set(roomId, { expiresAt, timer });
+}
+
+function cancelRoomDestruction(roomId: string) {
+  const item = roomDestructionTimers.get(roomId);
+  if (item) {
+    clearTimeout(item.timer);
+    roomDestructionTimers.delete(roomId);
+  }
+}
 
 function getUserRole(roomId: string, userId: string, email?: string): "admin1" | "admin2" | "member" {
   if (email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())) return "admin1";
@@ -277,6 +307,9 @@ wss.on("connection", (ws: WebSocket) => {
             );
             return;
           }
+
+          // Cancel any pending 10s auto-destruction timer for this room
+          cancelRoomDestruction(roomId);
 
           // Clean up prior room if user was in one
           if (currentUser && currentUser.roomId !== roomId) {
@@ -1149,12 +1182,7 @@ wss.on("connection", (ws: WebSocket) => {
       if (room) {
         room.delete(currentUser.id);
         if (room.size === 0 && currentUser.roomId !== PERMANENT_ROOM_ID) {
-          rooms.delete(currentUser.roomId);
-          roomMessages.delete(currentUser.roomId);
-          roomAdminRoles.delete(currentUser.roomId);
-          roomBans.delete(currentUser.roomId);
-          roomTimeouts.delete(currentUser.roomId);
-          roomNames.delete(currentUser.roomId);
+          scheduleRoomDestruction(currentUser.roomId);
         } else {
           broadcastToRoom(currentUser.roomId, {
             type: "user-left",
@@ -1523,7 +1551,7 @@ apiRouter.post("/room/create", (req, res) => {
   }
 });
 
-// Rooms list (Pins DMG#PREMIUM first, followed by active user rooms)
+// Rooms list (Pins DMG#PREMIUM first, followed by active user rooms and 10s countdown rooms)
 apiRouter.get("/rooms", (_req, res) => {
   const permUsers = rooms.get(PERMANENT_ROOM_ID) || new Map();
   const permUsersArr = Array.from(permUsers.values());
@@ -1534,6 +1562,7 @@ apiRouter.get("/rooms", (_req, res) => {
     name: "DMG#PREMIUM",
     isPermanent: true,
     userCount: permUsers.size,
+    emptyCountdownSecs: null,
     streamingCount: permUsersArr.filter((u) => u.isStreaming).length,
     host: {
       id: "admin-dmg",
@@ -1553,18 +1582,21 @@ apiRouter.get("/rooms", (_req, res) => {
   };
 
   const userRooms = Array.from(rooms.entries())
-    .filter(([id, userMap]) => id !== PERMANENT_ROOM_ID && userMap.size > 0)
+    .filter(([id, userMap]) => id !== PERMANENT_ROOM_ID && (userMap.size > 0 || roomDestructionTimers.has(id)))
     .map(([id, userMap]) => {
       const usersArr = Array.from(userMap.values());
       const host = usersArr[0];
       const activeStreamer = usersArr.find((u) => u.isStreaming);
       const customName = roomNames.get(id) || `Sala do ${host?.name || "Gamer"}`;
+      const destruct = roomDestructionTimers.get(id);
+      const countdownSecs = destruct ? Math.max(0, Math.ceil((destruct.expiresAt - Date.now()) / 1000)) : null;
 
       return {
         id,
         name: customName,
         isPermanent: false,
         userCount: userMap.size,
+        emptyCountdownSecs: countdownSecs,
         streamingCount: usersArr.filter((u) => u.isStreaming).length,
         host: host
           ? {
@@ -1587,7 +1619,9 @@ apiRouter.get("/rooms", (_req, res) => {
       };
     });
 
-  res.json({ rooms: [premiumRoom, ...userRooms] });
+  res.json({
+    rooms: [premiumRoom, ...userRooms],
+  });
 });
 
 // Room details (Checks whether room exists or is permanent)
