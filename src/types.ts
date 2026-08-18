@@ -113,3 +113,15 @@ export interface PublicRoomInfo {
   };
   createdAt: number;
 }
+
+export interface CommunityTopUser {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  avatarColor: string;
+  roleType: 'admin1' | 'admin2' | 'member' | 'guest';
+  roleLabel: string;
+  activeHours: number;
+  isOnline: boolean;
+  currentRoom?: string;
+}

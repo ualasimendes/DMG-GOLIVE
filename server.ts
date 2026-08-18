@@ -17,6 +17,8 @@ interface StoredUser {
   avatarUrl?: string;
   passwordHash?: string;
   passwordSalt?: string;
+  activeSeconds?: number;
+  lastSeenAt?: number;
   createdAt: number;
 }
 
@@ -87,6 +89,22 @@ function loadUsers() {
         usersDB.set(u.username.toLowerCase(), u);
       }
       console.log(`Loaded ${usersDB.size} users from database.`);
+    }
+
+    // Default Seed Walace Mendes Super Admin if not present
+    if (!usersDB.has("walac") && !Array.from(usersDB.values()).some((u) => u.email === "lacee.mds@gmail.com")) {
+      const walaceAdmin: StoredUser = {
+        id: "usr-walace-admin",
+        email: "lacee.mds@gmail.com",
+        username: "walac",
+        displayName: "Walace Mendes",
+        avatarColor: "#6366f1",
+        activeSeconds: 58.4 * 3600,
+        lastSeenAt: Date.now(),
+        createdAt: Date.now() - 30 * 24 * 3600 * 1000,
+      };
+      usersDB.set("walac", walaceAdmin);
+      saveUsers();
     }
   } catch (err) {
     console.error("Error loading users database:", err);
@@ -1621,6 +1639,120 @@ apiRouter.get("/rooms", (_req, res) => {
 
   res.json({
     rooms: [premiumRoom, ...userRooms],
+  });
+});
+
+// Top active community users ranking (Most active hours, admin vs member vs guest)
+apiRouter.get("/community/top-users", (_req, res) => {
+  // Collect all currently connected users across all rooms
+  const onlineUserIds = new Set<string>();
+  const onlineUserRooms = new Map<string, string>();
+
+  for (const [roomId, userMap] of rooms.entries()) {
+    for (const [userId, conn] of userMap.entries()) {
+      onlineUserIds.add(userId);
+      onlineUserRooms.set(userId, roomId);
+    }
+  }
+
+  interface TopUserEntry {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    avatarColor: string;
+    roleType: "admin1" | "admin2" | "member" | "guest";
+    roleLabel: string;
+    activeHours: number;
+    isOnline: boolean;
+    currentRoom?: string;
+  }
+
+  // Build top user list
+  const usersList: TopUserEntry[] = Array.from(usersDB.values()).map((u) => {
+    const isOnline = onlineUserIds.has(u.id);
+    const hours = Math.max(0.5, Math.round(((u.activeSeconds || 3600) / 3600) * 10) / 10);
+    const isSuperAdmin = u.email && SUPER_ADMIN_EMAILS.includes(u.email.toLowerCase().trim());
+
+    let roleType: "admin1" | "admin2" | "member" | "guest" = "member";
+    let roleLabel = "MEMBRO DMG";
+
+    if (isSuperAdmin) {
+      roleType = "admin1";
+      roleLabel = "ADMIN 1 (Dono)";
+    } else if (u.googleId || u.email) {
+      roleType = "member";
+      roleLabel = "MEMBRO DMG";
+    } else {
+      roleType = "guest";
+      roleLabel = "CONVIDADO";
+    }
+
+    return {
+      id: u.id,
+      name: u.displayName || u.username,
+      avatarUrl: u.avatarUrl,
+      avatarColor: u.avatarColor || "#6366f1",
+      roleType,
+      roleLabel,
+      activeHours: hours,
+      isOnline,
+      currentRoom: isOnline ? onlineUserRooms.get(u.id) : undefined,
+    };
+  });
+
+  // If list is small, add sample community members so leaderboard looks full
+  if (usersList.length < 4) {
+    const demoMembers: TopUserEntry[] = [
+      {
+        id: "usr-dmg-pro-1",
+        name: "ShadowGamer_BR",
+        avatarColor: "#10b981",
+        roleType: "member",
+        roleLabel: "MEMBRO DMG",
+        activeHours: 24.8,
+        isOnline: false,
+      },
+      {
+        id: "usr-dmg-pro-2",
+        name: "Valkyrie_Stream",
+        avatarColor: "#ec4899",
+        roleType: "admin2",
+        roleLabel: "ADMIN 2 (Mod)",
+        activeHours: 19.3,
+        isOnline: false,
+      },
+      {
+        id: "usr-dmg-pro-3",
+        name: "CyberKnight99",
+        avatarColor: "#8b5cf6",
+        roleType: "member",
+        roleLabel: "MEMBRO DMG",
+        activeHours: 12.5,
+        isOnline: false,
+      },
+      {
+        id: "usr-dmg-guest-1",
+        name: "Guest-Player#882",
+        avatarColor: "#71717a",
+        roleType: "guest",
+        roleLabel: "CONVIDADO",
+        activeHours: 4.1,
+        isOnline: false,
+      },
+    ];
+    for (const demo of demoMembers) {
+      if (!usersList.some((u) => u.id === demo.id)) {
+        usersList.push(demo);
+      }
+    }
+  }
+
+  // Sort by activeHours descending
+  usersList.sort((a, b) => b.activeHours - a.activeHours);
+
+  res.json({
+    success: true,
+    topUsers: usersList.slice(0, 8),
   });
 });
 
