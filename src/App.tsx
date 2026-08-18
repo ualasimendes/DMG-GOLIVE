@@ -6,9 +6,9 @@ import { RightPanel } from './components/RightPanel';
 import { LandingView } from './components/LandingView';
 import { CreateRoomModal } from './components/CreateRoomModal';
 import { SettingsModal } from './components/SettingsModal';
-import { DomainSetupModal } from './components/DomainSetupModal';
 import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
+import { TermsModal } from './components/TermsModal';
 import { useWebRTC } from './hooks/useWebRTC';
 import { AuthUser, UserProfile } from './types';
 import { Check, AlertCircle } from 'lucide-react';
@@ -35,7 +35,7 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
-  const [isDomainModalOpen, setIsDomainModalOpen] = useState<boolean>(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // User Profile
@@ -98,6 +98,16 @@ export default function App() {
     }
   }, []);
 
+  const webrtcUser = useMemo(
+    () => ({
+      id: currentUser.id,
+      name: currentUser.displayName || currentUser.username,
+      avatar: currentUser.avatarUrl,
+      avatarColor: currentUser.avatarColor,
+    }),
+    [currentUser]
+  );
+
   // WebRTC Real-Time Signaling Hook
   const {
     isConnected,
@@ -121,70 +131,188 @@ export default function App() {
     stopScreenShare,
     sendMessage,
     sendReaction,
-  } = useWebRTC(currentView === 'room' ? roomId : '', {
-    id: currentUser.id,
-    name: currentUser.displayName || currentUser.username,
-    avatar: currentUser.avatarUrl,
-    avatarColor: currentUser.avatarColor,
-  });
+  } = useWebRTC(currentView === 'room' ? roomId : '', webrtcUser);
 
-  // Calculate participants in the room
-  const participants: UserProfile[] = useMemo(() => {
-    // Current user representation in participants list
-    const me: UserProfile = {
-      id: currentUser.id,
-      name: currentUser.displayName || currentUser.username,
-      avatar: currentUser.avatarUrl,
-      avatarColor: currentUser.avatarColor,
-      status: 'online',
-      isHost: true,
-      isStreaming,
-      isMicMuted: isMuted,
-      isDeaf,
-      isSpeaking: isLocalSpeaking,
-      isCameraOn: hasCamera,
-    };
+  // Automatically start microphone when joining room
+  useEffect(() => {
+    if (currentView === 'room' && isConnected) {
+      startMicrophone().catch(() => {});
+    }
+  }, [currentView, isConnected]);
 
-    // Merge with remote connected users
-    const others = users.filter((u) => u.id !== currentUser.id);
-    return [me, ...others];
-  }, [currentUser, isStreaming, isMuted, isDeaf, isLocalSpeaking, hasCamera, users]);
-
-  // All streamers currently active
+  // Transform remoteStreams into list of streamers
   const allStreamers = useMemo(() => {
-    return participants.filter((p) => p.isStreaming);
-  }, [participants]);
+    const list = Array.from(remoteStreams.values()).map((peer: any) => ({
+      id: peer.userId,
+      name: peer.userName,
+      avatar: peer.avatarUrl,
+      avatarColor: peer.avatarColor,
+      isStreaming: true,
+      stream: peer.stream,
+      gameTitle: 'Transmissão Ao Vivo',
+      viewers: 1,
+      isLocal: false,
+    }));
 
-  // Active focused streamer on Stage
+    if (isStreaming && localScreenStream) {
+      list.unshift({
+        id: currentUser.id,
+        name: `${currentUser.displayName || currentUser.username} (Você)`,
+        avatar: currentUser.avatarUrl,
+        avatarColor: currentUser.avatarColor,
+        isStreaming: true,
+        stream: localScreenStream,
+        gameTitle: 'Sua Transmissão',
+        viewers: users.length,
+        isLocal: true,
+      });
+    }
+
+    return list;
+  }, [remoteStreams, isStreaming, localScreenStream, currentUser, users]);
+
+  // Current active streamer in the Stage
   const currentStreamer = useMemo(() => {
+    if (allStreamers.length === 0) return null;
     if (activeStreamerId) {
-      const found = participants.find((p) => p.id === activeStreamerId && p.isStreaming);
+      const found = allStreamers.find((s) => s.id === activeStreamerId);
       if (found) return found;
     }
-    // Default to first streamer or null
-    return allStreamers[0] || null;
-  }, [activeStreamerId, participants, allStreamers]);
+    return allStreamers[0];
+  }, [allStreamers, activeStreamerId]);
 
-  // Handle Screen Share Toggle
+  // Build participant list
+  const participants = useMemo<UserProfile[]>(() => {
+    const list: UserProfile[] = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      avatarColor: u.avatarColor,
+      status: 'online',
+      isStreaming: u.isStreaming,
+      isSpeaking: u.isSpeaking,
+      isMuted: u.isMuted,
+      isDeaf: u.isDeaf,
+      streamTitle: u.streamTitle,
+      isHost: u.id === users[0]?.id,
+    }));
+
+    const meInList = list.find((u) => u.id === currentUser.id);
+    if (meInList) {
+      meInList.isStreaming = isStreaming;
+      meInList.isSpeaking = isLocalSpeaking;
+      meInList.isMuted = isMuted;
+      meInList.isDeaf = isDeaf;
+    }
+
+    return list;
+  }, [users, currentUser, isStreaming, isLocalSpeaking, isMuted, isDeaf]);
+
+  // Handlers
+  const handleCreateAndJoin = (name: string, id: string) => {
+    if (currentUser.isGuest) {
+      setIsAuthModalOpen(true);
+      showToast('Faça login com sua Conta Google para criar uma sala.');
+      return;
+    }
+
+    setRoomId(id);
+    setRoomName(name);
+    setCurrentView('room');
+
+    setRecentRooms((prev) => {
+      const next = [{ id, name }, ...prev.filter((r) => r.id !== id)];
+      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
+      return next;
+    });
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', id);
+    window.history.pushState({}, '', url.toString());
+
+    showToast(`Sala "${name}" criada com sucesso!`);
+  };
+
+  const handleJoinByCode = (code: string) => {
+    if (currentUser.isGuest) {
+      setIsAuthModalOpen(true);
+      showToast('Faça login com sua Conta Google para entrar na sala.');
+      return;
+    }
+
+    const cleanId = code.toLowerCase().trim().replace(/\s+/g, '-');
+    setRoomId(cleanId);
+    setRoomName(cleanId.replace(/-/g, ' ').toUpperCase());
+    setCurrentView('room');
+
+    setRecentRooms((prev) => {
+      const next = [{ id: cleanId, name: cleanId.replace(/-/g, ' ').toUpperCase() }, ...prev.filter((r) => r.id !== cleanId)];
+      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
+      return next;
+    });
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', cleanId);
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const handleSelectRecentRoom = (id: string) => {
+    if (currentUser.isGuest) {
+      setIsAuthModalOpen(true);
+      showToast('Faça login com sua Conta Google para entrar.');
+      return;
+    }
+
+    const found = recentRooms.find((r) => r.id === id);
+    setRoomId(id);
+    setRoomName(found ? found.name : id);
+    setCurrentView('room');
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', id);
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const handleLeaveRoom = () => {
+    stopScreenShare();
+    setRoomId('');
+    setRoomName('');
+    setActiveStreamerId(null);
+    setCurrentView('landing');
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url.toString());
+  };
+
   const handleToggleScreenShare = async () => {
     if (isStreaming) {
       stopScreenShare();
-      showToast('Compartilhamento de tela encerrado');
+      showToast('Transmissão de tela encerrada.');
     } else {
-      await startScreenShare();
+      try {
+        await startScreenShare();
+        showToast('Compartilhando tela em 1080p 60 FPS!');
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+          showToast('Erro ao iniciar compartilhamento de tela.');
+        }
+      }
     }
   };
 
-  // Handle Mic Toggle
   const handleToggleMic = async () => {
     if (!localMicStream) {
-      await startMicrophone();
+      try {
+        await startMicrophone();
+      } catch {
+        showToast('Microfone não encontrado ou sem permissão.');
+      }
     } else {
       toggleMute();
     }
   };
 
-  // Handle Fullscreen Toggle
   const handleToggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -193,60 +321,6 @@ export default function App() {
     }
   };
 
-  // Leave room
-  const handleLeaveRoom = () => {
-    if (isStreaming) {
-      stopScreenShare();
-    }
-    setCurrentView('landing');
-    setRoomId('');
-    setRoomName('');
-    window.history.pushState({}, '', window.location.pathname);
-  };
-
-  // Join Room by Code
-  const handleJoinByCode = (code: string) => {
-    const cleanId = code.toLowerCase().trim().replace(/\s+/g, '-');
-    const displayName = code.trim().replace(/-/g, ' ');
-    setRoomId(cleanId);
-    setRoomName(displayName);
-
-    setRecentRooms((prev) => {
-      const next = [{ id: cleanId, name: displayName }, ...prev.filter((r) => r.id !== cleanId)];
-      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
-      return next;
-    });
-
-    setCurrentView('room');
-    window.history.pushState({}, '', `?room=${cleanId}`);
-  };
-
-  // Create Room & Join
-  const handleCreateAndJoin = (name: string, newId: string) => {
-    setRoomId(newId);
-    setRoomName(name);
-
-    setRecentRooms((prev) => {
-      const next = [{ id: newId, name }, ...prev.filter((r) => r.id !== newId)];
-      localStorage.setItem('dmg_recent_rooms', JSON.stringify(next));
-      return next;
-    });
-
-    setCurrentView('room');
-    window.history.pushState({}, '', `?room=${newId}`);
-  };
-
-  // Select room from sidebar
-  const handleSelectRecentRoom = (selectedId: string) => {
-    const found = recentRooms.find((r) => r.id === selectedId);
-    const name = found ? found.name : selectedId;
-    setRoomId(selectedId);
-    setRoomName(name);
-    setCurrentView('room');
-    window.history.pushState({}, '', `?room=${selectedId}`);
-  };
-
-  // Logout
   const handleLogout = () => {
     localStorage.removeItem('dmg_auth_token');
     localStorage.removeItem('dmg_auth_user');
@@ -270,9 +344,24 @@ export default function App() {
           currentUser={currentUser}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onOpenProfileModal={() => setIsProfileModalOpen(true)}
-          onOpenCreateModal={() => setIsCreateModalOpen(true)}
-          onJoinRoomByCode={handleJoinByCode}
-          onOpenDomainGuide={() => setIsDomainModalOpen(true)}
+          onOpenCreateModal={() => {
+            if (currentUser.isGuest) {
+              setIsAuthModalOpen(true);
+              showToast('Faça login com sua Conta Google para criar uma sala.');
+            } else {
+              setIsCreateModalOpen(true);
+            }
+          }}
+          onJoinRoom={(code) => {
+            if (currentUser.isGuest) {
+              setIsAuthModalOpen(true);
+              showToast('Faça login com sua Conta Google para entrar.');
+            } else {
+              handleJoinByCode(code);
+            }
+          }}
+          onOpenTermsModal={() => setIsTermsModalOpen(true)}
+          recentRooms={recentRooms}
         />
       ) : (
         /* Room View Layout */
@@ -283,7 +372,14 @@ export default function App() {
             <Sidebar
               currentUser={currentUser}
               activeRoomId={roomId}
-              onOpenCreateRoom={() => setIsCreateModalOpen(true)}
+              onOpenCreateRoom={() => {
+                if (currentUser.isGuest) {
+                  setIsAuthModalOpen(true);
+                  showToast('Faça login com sua Conta Google para criar salas.');
+                } else {
+                  setIsCreateModalOpen(true);
+                }
+              }}
               onOpenSettings={() => setIsSettingsModalOpen(true)}
               onOpenProfile={() => (currentUser.isGuest ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true))}
               recentRooms={recentRooms}
@@ -370,10 +466,9 @@ export default function App() {
         }}
       />
 
-      <DomainSetupModal
-        isOpen={isDomainModalOpen}
-        onClose={() => setIsDomainModalOpen(false)}
-        currentRoomId={roomId || 'gameplay'}
+      <TermsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
       />
     </div>
   );

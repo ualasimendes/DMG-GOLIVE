@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Gamepad2, ArrowRight, Link as LinkIcon, Sparkles } from 'lucide-react';
+import { X, Copy, Check, Gamepad2, ArrowRight, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { getShareableRoomUrl } from '../utils/api';
 
 interface CreateRoomModalProps {
@@ -16,12 +16,13 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const [roomName, setRoomName] = useState('Gameplay');
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(true);
 
   if (!isOpen) return null;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomName.trim()) return;
+    if (!roomName.trim() || !acceptedGuidelines) return;
 
     // Generate clean room slug
     const cleanSlug = roomName
@@ -63,7 +64,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in select-none">
       <div
         id="modal-create-room"
-        className="w-full max-w-md bg-[#0e101b] border border-[#21263c] rounded-2xl p-6 shadow-2xl relative text-zinc-100"
+        className="w-full max-w-md bg-[#0e101b] border border-[#21263c] rounded-2xl p-6 shadow-2xl relative text-zinc-100 space-y-4"
       >
         {/* Close Button */}
         <button
@@ -74,15 +75,15 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         </button>
 
         {!createdRoomId ? (
-          /* Step 1: Input Room Name */
+          /* Step 1: Input Room Name & Agreement */
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mb-2">
                 <Gamepad2 className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-zinc-100">Nova sala</h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Dê um nome para sua sala de transmissão de gameplay e filmes.
+              <h3 className="text-lg font-bold text-zinc-100">Criar Nova Sala</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Transmita sua gameplay ou assista filmes em tempo real com áudio estéreo.
               </p>
             </div>
 
@@ -99,7 +100,18 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               />
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* Safety & Guidelines Warning */}
+            <div className="p-3 bg-red-950/30 border border-red-900/60 rounded-xl text-left space-y-1.5">
+              <div className="flex items-center gap-1.5 text-red-400 text-xs font-bold">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Diretrizes de Segurança e Transmissão</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                É expressamente proibida a transmissão de qualquer conteúdo <strong>sexual, explícito, violento, que viole direitos humanos ou condutas sem escrúpulos</strong>. Infratores serão banidos permanentemente.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleClose}
@@ -112,7 +124,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 id="btn-confirm-create-room"
                 className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
               >
-                Criar sala
+                Criar Sala
               </button>
             </div>
           </form>
