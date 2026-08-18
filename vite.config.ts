@@ -14,6 +14,7 @@ export default defineConfig(() => {
     },
     server: {
       port: 3000,
+      allowedHosts: ['.walacemendes.com.br', '.walacemendes.com', '.onrender.com', 'localhost', '127.0.0.1', 'dmg-golive.onrender.com', 'live.walacemendes.com.br'],
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
