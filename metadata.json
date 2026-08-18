@@ -1,6 +1,6 @@
 {
-  "name": "Walace Share",
-  "description": "Alternativa moderna e rápida ao Discord para compartilhar tela e gameplay com amigos em walacemendes.com.br.",
+  "name": "DMG Live Share",
+  "description": "High-performance P2P WebRTC screen sharing platform with stereo audio capture and real-time voice chat.",
   "requestFramePermissions": ["microphone", "camera", "display-capture"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
