@@ -868,13 +868,42 @@ apiRouter.get("/health", (_req, res) => {
   });
 });
 
-// Rooms list
+// Rooms list with active host & streamer metadata
 apiRouter.get("/rooms", (_req, res) => {
-  const list = Array.from(rooms.entries()).map(([id, userMap]) => ({
-    id,
-    userCount: userMap.size,
-    streamingCount: Array.from(userMap.values()).filter((u) => u.isStreaming).length,
-  }));
+  const list = Array.from(rooms.entries())
+    .filter(([_, userMap]) => userMap.size > 0)
+    .map(([id, userMap]) => {
+      const usersArr = Array.from(userMap.values());
+      const host = usersArr[0]; // The first user / room owner
+      const activeStreamer = usersArr.find((u) => u.isStreaming);
+      const cleanName = id.replace(/^room-(\d+)/i, "ROOM #$1").toUpperCase();
+
+      return {
+        id,
+        name: cleanName,
+        userCount: userMap.size,
+        streamingCount: usersArr.filter((u) => u.isStreaming).length,
+        host: host
+          ? {
+              id: host.id,
+              name: host.name,
+              avatar: host.avatar,
+              avatarColor: host.avatarColor,
+            }
+          : undefined,
+        activeStreamer: activeStreamer
+          ? {
+              id: activeStreamer.id,
+              name: activeStreamer.name,
+              avatar: activeStreamer.avatar,
+              avatarColor: activeStreamer.avatarColor,
+              streamTitle: activeStreamer.streamTitle,
+            }
+          : undefined,
+        createdAt: host?.joinedAt || Date.now(),
+      };
+    });
+
   res.json({ rooms: list });
 });
 

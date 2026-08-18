@@ -88,3 +88,24 @@ export interface RoomData {
   participants: UserProfile[];
   currentStreamerId?: string | null;
 }
+
+export interface PublicRoomInfo {
+  id: string;
+  name: string;
+  userCount: number;
+  streamingCount: number;
+  host?: {
+    id: string;
+    name: string;
+    avatar?: string;
+    avatarColor: string;
+  };
+  activeStreamer?: {
+    id: string;
+    name: string;
+    avatar?: string;
+    avatarColor: string;
+    streamTitle?: string;
+  };
+  createdAt: number;
+}
