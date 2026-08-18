@@ -103,22 +103,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Main Site / Projetos Link Icon */}
-        <div className="group relative mb-2">
-          <a
-            href="https://walacemendes.com.br"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-10 h-10 rounded-xl bg-[#121422] hover:bg-[#1c2032] text-zinc-400 hover:text-indigo-300 border border-[#21263c] hover:border-indigo-500/50 flex items-center justify-center transition-all"
-            title="Voltar ao Portfólio / Aba Projetos"
-          >
-            <FolderGit2 className="w-4 h-4 text-indigo-400" />
-          </a>
-          <div className="absolute left-16 px-2.5 py-1 bg-zinc-900 text-zinc-100 text-xs rounded-md shadow-xl border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-            Aba Projetos (walacemendes.com.br)
-          </div>
-        </div>
-
         <div className="w-8 h-[1px] bg-[#1a1e2c] mb-3" />
 
         {/* Add / Create Room Button */}

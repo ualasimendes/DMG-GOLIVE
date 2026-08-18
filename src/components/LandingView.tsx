@@ -109,19 +109,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <WalaceLogo size="md" showText={true} />
 
         <div className="flex items-center gap-3">
-          {/* Main Portfolio / Aba Projetos Link */}
-          <a
-            href="https://walacemendes.com.br"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#121420] hover:bg-[#1a1d2e] border border-[#21263c] text-xs font-semibold text-zinc-300 hover:text-white transition-all shadow-sm group"
-            title="Voltar ao Portfólio Principal"
-          >
-            <FolderGit2 className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
-            <span>Aba Projetos</span>
-            <ExternalLink className="w-3 h-3 text-zinc-500" />
-          </a>
-
           {/* Google Auth / Profile Button */}
           {!currentUser ? (
             <button
