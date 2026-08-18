@@ -51,7 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-bold text-zinc-100">Configurações de Transmissão</h3>
-            <p className="text-xs text-zinc-400">Walace Share • walacemendes.com.br</p>
+            <p className="text-xs text-zinc-400">DMG LIVE SHARE • live.walacemendes.com.br</p>
           </div>
         </div>
 

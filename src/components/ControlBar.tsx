@@ -141,7 +141,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 
       {/* Right side spacer for balanced centered dock */}
       <div className="hidden md:flex items-center gap-2 opacity-60">
-        <span className="text-[11px] font-mono text-zinc-400">walacemendes.com.br</span>
+        <span className="text-[11px] font-mono text-zinc-400">DMG LIVE SHARE</span>
       </div>
     </footer>
   );
