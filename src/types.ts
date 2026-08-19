@@ -38,6 +38,19 @@ export interface StreamQuality {
   latencyMs: number;
 }
 
+export interface LiveStreamStats {
+  measuredBitrateKbps: number;
+  measuredBitrateMbps: string;
+  measuredFps: number;
+  measuredResolution: string;
+  measuredWidth: number;
+  measuredHeight: number;
+  latencyMs: number;
+  packetLoss: number;
+  codec: string;
+  isSending: boolean;
+}
+
 export interface StreamQualityPreset {
   id: string;
   label: string;

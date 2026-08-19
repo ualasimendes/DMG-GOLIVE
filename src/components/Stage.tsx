@@ -11,8 +11,12 @@ import {
   Camera,
   Layers,
   Share2,
+  Activity,
+  Info,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
-import { UserProfile, StreamQuality, PeerStreamData } from '../types';
+import { UserProfile, StreamQuality, LiveStreamStats, PeerStreamData } from '../types';
 
 interface StageProps {
   streamer: UserProfile | null;
@@ -22,6 +26,7 @@ interface StageProps {
   isLocalStreaming: boolean;
   onStartShare: () => void;
   streamQuality: StreamQuality;
+  liveStats?: LiveStreamStats;
   roomName: string;
   currentUserId: string;
   remoteStreams: Map<string, PeerStreamData>;
@@ -35,6 +40,7 @@ export const Stage: React.FC<StageProps> = ({
   isLocalStreaming,
   onStartShare,
   streamQuality,
+  liveStats,
   roomName,
   currentUserId,
   remoteStreams,
@@ -44,6 +50,8 @@ export const Stage: React.FC<StageProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [volume, setVolume] = useState<number>(100);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [showStatsHud, setShowStatsHud] = useState(false);
+  const [decodedDimensions, setDecodedDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const isMe = streamer?.id === currentUserId;
   const remoteStreamData = streamer && !isMe ? remoteStreams.get(streamer.id) : null;
@@ -53,7 +61,7 @@ export const Stage: React.FC<StageProps> = ({
     activeMediaStream.getVideoTracks().some((t) => t.readyState === 'live')
   );
 
-  // Bind active media stream to video element
+  // Bind active media stream to video element and track decoded resolution
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -70,8 +78,24 @@ export const Stage: React.FC<StageProps> = ({
           videoEl.play().catch((err) => console.warn('Secondary play warning:', err));
         });
       }
+
+      const updateDimensions = () => {
+        if (videoEl.videoWidth && videoEl.videoHeight) {
+          setDecodedDimensions({ width: videoEl.videoWidth, height: videoEl.videoHeight });
+        }
+      };
+
+      videoEl.addEventListener('loadedmetadata', updateDimensions);
+      videoEl.addEventListener('resize', updateDimensions);
+      updateDimensions();
+
+      return () => {
+        videoEl.removeEventListener('loadedmetadata', updateDimensions);
+        videoEl.removeEventListener('resize', updateDimensions);
+      };
     } else {
       videoEl.srcObject = null;
+      setDecodedDimensions(null);
     }
   }, [activeMediaStream, streamer?.id, hasVideoTrack]);
 
@@ -81,7 +105,7 @@ export const Stage: React.FC<StageProps> = ({
     if (!videoEl) return;
 
     if (isMe) {
-      videoEl.muted = true; // Avoid local loopback feedback
+      videoEl.muted = true;
     } else {
       videoEl.muted = isAudioMuted;
       videoEl.volume = isAudioMuted ? 0 : Math.min(1, Math.max(0, volume / 100));
@@ -128,6 +152,17 @@ export const Stage: React.FC<StageProps> = ({
 
   const hasStream = !!streamer;
 
+  // Real measured values
+  const currentResolutionText = decodedDimensions
+    ? `${decodedDimensions.width}x${decodedDimensions.height}`
+    : liveStats?.measuredResolution || streamQuality.resolution;
+  const currentFps = liveStats?.measuredFps || streamQuality.fps;
+  const currentBitrateText =
+    liveStats && liveStats.measuredBitrateKbps > 0
+      ? liveStats.measuredBitrateMbps
+      : streamQuality.bitrate;
+  const currentLatency = liveStats?.latencyMs || streamQuality.latencyMs;
+
   return (
     <main
       ref={containerRef}
@@ -136,7 +171,7 @@ export const Stage: React.FC<StageProps> = ({
     >
       {hasStream ? (
         <div className="w-full h-full flex flex-col relative rounded-2xl overflow-hidden bg-black border border-[#1b2034] shadow-2xl group">
-          {/* Top Floating Overlay (Streamer Info & Quality Bar) */}
+          {/* Top Floating Overlay (Streamer Info & Real Live Quality Bar) */}
           <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-20 flex items-center justify-between pointer-events-none opacity-95 group-hover:opacity-100 transition-opacity">
             <div className="flex items-center gap-3 pointer-events-auto">
               <div
@@ -168,17 +203,27 @@ export const Stage: React.FC<StageProps> = ({
               </div>
             </div>
 
-            {/* Quality & Action Badges */}
+            {/* Live Metrics & Action Badges */}
             <div className="flex items-center gap-2 pointer-events-auto">
-              <div className="hidden sm:flex items-center gap-2.5 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs font-mono text-zinc-300">
+              {/* Clickable Real-Time Stats Badge (HUD Trigger) */}
+              <button
+                type="button"
+                onClick={() => setShowStatsHud(!showStatsHud)}
+                className="hidden sm:flex items-center gap-2 bg-black/75 hover:bg-black/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 hover:border-indigo-400/50 text-xs font-mono text-zinc-300 transition-all cursor-pointer shadow-sm group/badge"
+                title="Clique para abrir as Estatísticas Técnicas (HUD)"
+              >
                 <span className="text-emerald-400 flex items-center gap-1 font-semibold">
                   <Wifi className="w-3.5 h-3.5" />
-                  {streamQuality.latencyMs}ms
+                  {currentLatency}ms
                 </span>
                 <span className="text-zinc-600">|</span>
-                <span>{streamQuality.resolution}</span>
-                <span className="text-indigo-400 font-semibold">{streamQuality.fps} FPS</span>
-              </div>
+                <span className="font-bold text-zinc-100">{currentResolutionText}</span>
+                <span className="text-zinc-600">|</span>
+                <span className="text-indigo-400 font-semibold">{currentFps} FPS</span>
+                <span className="text-zinc-600">|</span>
+                <span className="text-amber-400 font-semibold">{currentBitrateText}</span>
+                <Activity className="w-3.5 h-3.5 text-zinc-400 group-hover/badge:text-indigo-400 ml-0.5 transition-colors" />
+              </button>
 
               {/* Volume Slider for Remote Stream */}
               {!isMe && (
@@ -236,6 +281,71 @@ export const Stage: React.FC<StageProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Floating WebRTC Stats HUD / Stats for Nerds Panel */}
+          {showStatsHud && (
+            <div className="absolute top-16 right-4 z-30 w-72 bg-[#0c0e18]/95 backdrop-blur-xl border border-indigo-500/40 rounded-2xl p-4 shadow-2xl text-xs text-zinc-200 animate-in fade-in zoom-in-95 space-y-3 font-sans select-text">
+              <div className="flex items-center justify-between border-b border-[#22283e] pb-2">
+                <div className="flex items-center gap-1.5 font-bold text-white text-xs">
+                  <Activity className="w-4 h-4 text-indigo-400" />
+                  <span>Estatísticas em Tempo Real</span>
+                </div>
+                <button
+                  onClick={() => setShowStatsHud(false)}
+                  className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-2 text-[11px] font-mono">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Resolução Decodificada:</span>
+                  <span className="font-bold text-white bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/60">
+                    {currentResolutionText}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Taxa de Quadros (FPS):</span>
+                  <span className="font-bold text-indigo-300">{currentFps} FPS</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Bitrate Medido (Taxa):</span>
+                  <span className="font-bold text-amber-300">
+                    {liveStats?.measuredBitrateMbps || currentBitrateText}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Latência P2P Direta:</span>
+                  <span className="font-bold text-emerald-400">{currentLatency} ms</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Codec de Vídeo:</span>
+                  <span className="text-zinc-300">{liveStats?.codec || 'H264 / VP8'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Perda de Pacotes:</span>
+                  <span className="text-zinc-300">{liveStats?.packetLoss || 0}%</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-[#1e243a]">
+                  <span className="text-zinc-400">Direção do Fluxo:</span>
+                  <span className="text-indigo-400 font-sans font-semibold">
+                    {isMe ? 'Transmitindo (Outbound)' : 'Recebendo (Inbound)'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-zinc-400 pt-1 border-t border-[#1e243a] leading-tight">
+                * As medições são atualizadas a cada 1 segundo diretamente da conexão WebRTC do navegador.
+              </div>
+            </div>
+          )}
 
           {/* Real Video Player Display */}
           <div className="w-full h-full flex items-center justify-center relative bg-[#040508]">

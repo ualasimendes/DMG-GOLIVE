@@ -212,6 +212,7 @@ export default function App() {
     isLocalSpeaking,
     streamQuality,
     setStreamQuality,
+    liveStats,
     startMicrophone,
     toggleMute,
     toggleDeafen,
@@ -541,6 +542,7 @@ export default function App() {
               isLocalStreaming={isStreaming}
               onStartShare={handleToggleScreenShare}
               streamQuality={streamQuality}
+              liveStats={liveStats}
               roomName={roomName || roomId}
               currentUserId={currentUser ? currentUser.id : ''}
               remoteStreams={remoteStreams}

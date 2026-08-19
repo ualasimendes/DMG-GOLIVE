@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { User, ChatMessage, StreamQuality, AudioSettings, PeerStreamData } from '../types';
+import { User, ChatMessage, StreamQuality, LiveStreamStats, AudioSettings, PeerStreamData } from '../types';
 import { createAudioLevelDetector } from '../utils/audio';
 
 const RTC_CONFIG: RTCConfiguration = {
@@ -160,6 +160,19 @@ export function useWebRTC(
     latencyMs: 12,
   });
 
+  const [liveStats, setLiveStats] = useState<LiveStreamStats>({
+    measuredBitrateKbps: 0,
+    measuredBitrateMbps: '0.0 Mbps',
+    measuredFps: 60,
+    measuredResolution: '1080p',
+    measuredWidth: 1920,
+    measuredHeight: 1080,
+    latencyMs: 12,
+    packetLoss: 0,
+    codec: 'H264/VP8',
+    isSending: false,
+  });
+
   const [audioSettings, setAudioSettings] = useState<AudioSettings>({
     selectedAudioInputId: 'default',
     selectedAudioOutputId: 'default',
@@ -185,6 +198,7 @@ export function useWebRTC(
   const usersRef = useRef<User[]>(users);
   const compositeStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const streamQualityRef = useRef<StreamQuality>(streamQuality);
+  const prevStatsMapRef = useRef<Map<string, { bytes: number; timestamp: number }>>(new Map());
 
   userRef.current = user;
   usersRef.current = users;
@@ -198,23 +212,52 @@ export function useWebRTC(
       const bitrateKbps = getBitrateKbps(quality);
       const fps = quality.fps || 60;
 
+      const targetHeight =
+        quality.resolution === '4K'
+          ? 2160
+          : quality.resolution === '1440p'
+          ? 1440
+          : quality.resolution === '720p'
+          ? 720
+          : 1080;
+
       const senders = pc.getSenders();
       for (const sender of senders) {
         if (sender.track?.kind === 'video') {
           try {
+            const track = sender.track;
+            let scaleResolutionDownBy = 1.0;
+
+            if (track) {
+              const settings = track.getSettings();
+              const currentTrackHeight = settings.height || 1080;
+              if (currentTrackHeight > targetHeight) {
+                scaleResolutionDownBy = Number((currentTrackHeight / targetHeight).toFixed(2));
+              }
+
+              // Dynamically apply frameRate constraint to local track
+              track
+                .applyConstraints({
+                  frameRate: { max: fps, ideal: fps },
+                })
+                .catch(() => {});
+            }
+
             const params = sender.getParameters();
             if (!params.encodings || params.encodings.length === 0) {
               params.encodings = [{}];
             }
             params.encodings[0].maxBitrate = bitrateKbps * 1000;
             params.encodings[0].maxFramerate = fps;
-            params.encodings[0].scaleResolutionDownBy = 1.0;
+            params.encodings[0].scaleResolutionDownBy = Math.max(1.0, scaleResolutionDownBy);
             (params.encodings[0] as any).networkPriority = 'high';
             (params.encodings[0] as any).priority = 'high';
             (params as any).degradationPreference = 'maintain-resolution';
 
             await sender.setParameters(params);
-            console.log(`[WebRTC Quality] Configurado ${bitrateKbps} Kbps @ ${fps} FPS`);
+            console.log(
+              `[WebRTC Quality] Configurado ${bitrateKbps} Kbps @ ${fps} FPS (scaleDownBy: ${params.encodings[0].scaleResolutionDownBy}x) para ${quality.resolution}`
+            );
           } catch (err) {
             console.warn('[WebRTC Quality] Sender parameters notice:', err);
           }
@@ -230,6 +273,141 @@ export function useWebRTC(
       applyVideoQualityToPc(pc, streamQuality);
     });
   }, [streamQuality, applyVideoQualityToPc]);
+
+  // Real-time WebRTC Live Stats Engine (Measures actual bitrate, FPS, resolution and latency every 1000ms)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (peerConnectionsRef.current.size === 0 && !isStreaming) {
+        return;
+      }
+
+      let totalBytesDelta = 0;
+      let totalTimeDeltaMs = 0;
+      let highestFps = 0;
+      let maxWidth = 0;
+      let maxHeight = 0;
+      let lowestRttMs = 999;
+      let activeCodec = 'H264';
+      let totalPacketsLost = 0;
+      let totalPacketsReceived = 0;
+      let isSendingLocal = isStreaming;
+
+      const now = Date.now();
+
+      for (const [peerId, pc] of peerConnectionsRef.current.entries()) {
+        if (
+          pc.connectionState !== 'connected' &&
+          pc.iceConnectionState !== 'connected' &&
+          pc.iceConnectionState !== 'completed'
+        ) {
+          continue;
+        }
+
+        try {
+          const stats = await pc.getStats();
+          let currentPeerBytes = 0;
+
+          stats.forEach((report) => {
+            // Outbound video (Local stream being sent)
+            if (report.type === 'outbound-rtp' && report.kind === 'video') {
+              isSendingLocal = true;
+              currentPeerBytes += report.bytesSent || 0;
+              if (report.framesPerSecond) highestFps = Math.max(highestFps, Math.round(report.framesPerSecond));
+              if (report.frameWidth) maxWidth = Math.max(maxWidth, report.frameWidth);
+              if (report.frameHeight) maxHeight = Math.max(maxHeight, report.frameHeight);
+            }
+
+            // Inbound video (Remote stream being received)
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              currentPeerBytes += report.bytesReceived || 0;
+              if (report.framesPerSecond) highestFps = Math.max(highestFps, Math.round(report.framesPerSecond));
+              if (report.frameWidth) maxWidth = Math.max(maxWidth, report.frameWidth);
+              if (report.frameHeight) maxHeight = Math.max(maxHeight, report.frameHeight);
+              if (typeof report.packetsLost === 'number') totalPacketsLost += report.packetsLost;
+              if (typeof report.packetsReceived === 'number') totalPacketsReceived += report.packetsReceived;
+            }
+
+            // Codec identification
+            if (report.type === 'codec' && report.mimeType && report.mimeType.toLowerCase().includes('video')) {
+              activeCodec = report.mimeType.replace(/^video\//i, '').toUpperCase();
+            }
+
+            // Real Round Trip Time (Latency in ms)
+            if (report.type === 'candidate-pair' && (report.state === 'succeeded' || report.nominated)) {
+              const rtt =
+                typeof report.currentRoundTripTime === 'number'
+                  ? Math.round(report.currentRoundTripTime * 1000)
+                  : typeof report.roundTripTime === 'number'
+                  ? Math.round(report.roundTripTime * 1000)
+                  : null;
+              if (rtt !== null && rtt > 0) {
+                lowestRttMs = Math.min(lowestRttMs, rtt);
+              }
+            }
+          });
+
+          // Calculate bitrate delta for this peer connection
+          const prev = prevStatsMapRef.current.get(peerId);
+          if (prev && prev.bytes > 0 && currentPeerBytes >= prev.bytes) {
+            const bytesDiff = currentPeerBytes - prev.bytes;
+            const timeDiff = Math.max(1, now - prev.timestamp);
+            totalBytesDelta += bytesDiff;
+            totalTimeDeltaMs = Math.max(totalTimeDeltaMs, timeDiff);
+          }
+
+          prevStatsMapRef.current.set(peerId, { bytes: currentPeerBytes, timestamp: now });
+        } catch {}
+      }
+
+      // Calculate bitrate in Kbps and Mbps
+      const effectiveTimeMs = totalTimeDeltaMs > 0 ? totalTimeDeltaMs : 1000;
+      const bitrateKbps =
+        totalBytesDelta > 0
+          ? Math.round((totalBytesDelta * 8) / (effectiveTimeMs / 1000) / 1000)
+          : 0;
+      const bitrateMbpsStr = (bitrateKbps / 1000).toFixed(2) + ' Mbps';
+
+      const currentQ = streamQualityRef.current;
+      const finalWidth =
+        maxWidth ||
+        (currentQ.resolution === '4K'
+          ? 3840
+          : currentQ.resolution === '1440p'
+          ? 2560
+          : currentQ.resolution === '720p'
+          ? 1280
+          : 1920);
+      const finalHeight =
+        maxHeight ||
+        (currentQ.resolution === '4K'
+          ? 2160
+          : currentQ.resolution === '1440p'
+          ? 1440
+          : currentQ.resolution === '720p'
+          ? 720
+          : 1080);
+      const finalFps = highestFps || currentQ.fps || 60;
+      const finalLatency = lowestRttMs < 999 ? lowestRttMs : pingMs;
+      const totalPackets = totalPacketsReceived + totalPacketsLost;
+      const packetLossPercent =
+        totalPackets > 0 ? Number(((totalPacketsLost / totalPackets) * 100).toFixed(1)) : 0;
+
+      setLiveStats({
+        measuredBitrateKbps: bitrateKbps,
+        measuredBitrateMbps: bitrateMbpsStr,
+        measuredFps: finalFps,
+        measuredResolution: `${finalWidth}x${finalHeight}`,
+        measuredWidth: finalWidth,
+        measuredHeight: finalHeight,
+        latencyMs: finalLatency,
+        packetLoss: packetLossPercent,
+        codec: activeCodec,
+        isSending: isSendingLocal,
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isStreaming, pingMs]);
 
   // Create or retrieve PeerConnection for a remote peer with Perfect Negotiation
   const getOrCreatePeerConnection = useCallback(
@@ -1014,6 +1192,7 @@ export function useWebRTC(
     isLocalSpeaking,
     streamQuality,
     setStreamQuality,
+    liveStats,
     audioSettings,
     setAudioSettings,
     activeYouTubeTrack,
