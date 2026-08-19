@@ -379,7 +379,7 @@ export default function App() {
     handleJoinRoom(code);
   };
 
-  const handleCreateAndJoin = (newRoomId: string, newRoomName: string) => {
+  const handleCreateAndJoin = (newRoomName: string, newRoomId: string) => {
     handleJoinRoom(newRoomId, newRoomName);
     setIsCreateModalOpen(false);
   };

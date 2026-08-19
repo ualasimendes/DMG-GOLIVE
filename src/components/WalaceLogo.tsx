@@ -1,4 +1,5 @@
 import React from 'react';
+import { Radio } from 'lucide-react';
 
 interface WalaceLogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -12,36 +13,36 @@ export const WalaceLogo: React.FC<WalaceLogoProps> = ({
   className = '',
 }) => {
   const sizeClasses = {
-    sm: 'w-8 h-8 text-sm',
-    md: 'w-10 h-10 text-base',
-    lg: 'w-14 h-14 text-xl',
-  };
-
-  const iconSizes = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-7 h-7',
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-13 h-13 text-base',
   };
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      {/* Geometric 'DMG' Emblem with modern violet/electric styling */}
+    <div className={`flex items-center gap-3 ${className}`}>
+      {/* Sleek Diamond-Glass Emblem */}
       <div
-        className={`${sizeClasses[size]} relative rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 p-[1px] shadow-lg shadow-indigo-900/30 flex items-center justify-center group shrink-0`}
+        className={`${sizeClasses[size]} relative rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-700 p-[1.5px] shadow-lg shadow-indigo-500/20 flex items-center justify-center group shrink-0 transition-transform duration-200 group-hover:scale-105`}
       >
-        <div className="w-full h-full bg-[#0e1017] rounded-[11px] flex items-center justify-center overflow-hidden transition-colors group-hover:bg-[#121520]">
-          <span className="font-extrabold text-indigo-400 tracking-tighter text-xs font-mono group-hover:text-indigo-300 transition-transform group-hover:scale-105">
+        <div className="w-full h-full bg-[#0a0c14] rounded-[14px] flex items-center justify-center overflow-hidden transition-colors group-hover:bg-[#0f1320] relative">
+          <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-white to-violet-300 tracking-tighter font-mono group-hover:scale-105 transition-transform">
             DMG
           </span>
+          <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         </div>
       </div>
 
       {showText && (
         <div className="flex flex-col text-left">
-          <span className="font-extrabold text-sm tracking-wider text-zinc-100 uppercase font-sans">
-            DMG <span className="text-indigo-400">LIVE SHARE</span>
-          </span>
-          <span className="text-[10px] text-zinc-500 font-mono tracking-tight -mt-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-display font-extrabold text-sm tracking-tight text-white">
+              DMG <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">LIVE SHARE</span>
+            </span>
+            <span className="px-1.5 py-0.2 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[9px] font-bold tracking-widest uppercase font-mono">
+              60 FPS
+            </span>
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono tracking-tight">
             live.walacemendes.com.br
           </span>
         </div>

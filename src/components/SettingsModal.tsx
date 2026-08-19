@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sliders, Mic, Monitor, Volume2, Check, ShieldCheck } from 'lucide-react';
+import { X, Sliders, Mic, Monitor, Volume2, Check } from 'lucide-react';
 import { StreamQuality } from '../types';
 
 interface SettingsModalProps {
@@ -34,26 +34,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none font-sans">
       <div
         id="modal-settings"
-        className="w-full max-w-md bg-[#0e1019] border border-[#212638] rounded-2xl p-6 shadow-2xl relative text-zinc-100 space-y-5"
+        className="w-full max-w-md bg-[#0c0e17] border border-[#1e2338] rounded-3xl p-6 sm:p-7 shadow-2xl relative text-zinc-100 space-y-5"
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
             <Sliders className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-zinc-100">Configurações de Transmissão</h3>
-            <p className="text-xs text-zinc-400">DMG LIVE SHARE • Transmissão em Alta Fidelidade</p>
+            <h3 className="font-display text-lg font-bold text-white">Configurações de Transmissão</h3>
+            <p className="text-xs text-zinc-400">Qualidade de vídeo e processamento de áudio</p>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   selectedRes === res
                     ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/25'
-                    : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
+                    : 'bg-[#121524] text-zinc-300 border-[#20253c] hover:bg-[#181d30]'
                 }`}
               >
                 {res}
@@ -95,13 +95,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 key={fps}
                 type="button"
                 onClick={() => setSelectedFps(fps)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                className={`py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   selectedFps === fps
                     ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/25'
-                    : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
+                    : 'bg-[#121524] text-zinc-300 border-[#20253c] hover:bg-[#181d30]'
                 }`}
               >
-                {fps} FPS {fps === 60 && '🔥 (Jogos e Filmes)'}
+                {fps} FPS {fps === 60 && '🔥 (Fluidez para Jogos)'}
               </button>
             ))}
           </div>
@@ -109,11 +109,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Bitrate Options */}
           <div className="space-y-1.5 pt-1">
             <label className="text-[11px] font-semibold text-zinc-400">
-              Taxa de Dados / Bitrate (Nitidez da Imagem)
+              Taxa de Dados / Bitrate (Nitidez)
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { label: '4.000 Kbps (Básico)', value: '4000 Kbps' },
+                { label: '4.000 Kbps (Leve)', value: '4000 Kbps' },
                 { label: '8.000 Kbps (1080p HD)', value: '8000 Kbps' },
                 { label: '12.000 Kbps (2K Ultra)', value: '12000 Kbps' },
                 { label: '18.000 Kbps (4K Máx)', value: '18000 Kbps' },
@@ -122,10 +122,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   key={item.value}
                   type="button"
                   onClick={() => setSelectedBitrate(item.value)}
-                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer text-left ${
+                  className={`py-2 px-2.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer text-left ${
                     selectedBitrate === item.value
                       ? 'bg-emerald-600/25 text-emerald-300 border-emerald-500/50 shadow-sm'
-                      : 'bg-[#141624] text-zinc-400 border-[#23283c] hover:bg-[#1a1e30]'
+                      : 'bg-[#121524] text-zinc-300 border-[#20253c] hover:bg-[#181d30]'
                   }`}
                 >
                   {item.label}
@@ -136,13 +136,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Voice & Audio Filters */}
-        <div className="space-y-2 pt-2 border-t border-[#1b1e2a]">
+        <div className="space-y-2 pt-2 border-t border-[#1b2034]">
           <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
             <Mic className="w-3.5 h-3.5 text-indigo-400" />
-            Processamento de Voz do Microfone
+            Filtros de Microfone
           </label>
 
-          <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#131622] border border-[#212638] cursor-pointer hover:bg-[#181c2b] transition-colors">
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-[#121524] border border-[#20253c] cursor-pointer hover:bg-[#181d30] transition-colors">
             <span className="text-xs text-zinc-200">Supressão de Ruído de Fundo</span>
             <input
               type="checkbox"
@@ -152,8 +152,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </label>
 
-          <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#131622] border border-[#212638] cursor-pointer hover:bg-[#181c2b] transition-colors">
-            <span className="text-xs text-zinc-200">Cancelamento de Eco Acústico</span>
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-[#121524] border border-[#20253c] cursor-pointer hover:bg-[#181d30] transition-colors">
+            <span className="text-xs text-zinc-200">Cancelamento de Eco</span>
             <input
               type="checkbox"
               checked={echoCancellation}
@@ -164,18 +164,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2.5 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-[#141622] hover:bg-[#1a1e2e] text-zinc-300 text-sm font-semibold border border-[#23283c] transition-colors"
+            className="flex-1 py-3 rounded-xl bg-[#121524] hover:bg-[#181d30] text-zinc-300 text-sm font-semibold border border-[#20253c] transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all"
+            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
           >
             Salvar
           </button>

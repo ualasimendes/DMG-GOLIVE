@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, AlertCircle, X } from 'lucide-react';
+import { Shield, AlertCircle, X, CheckCircle2 } from 'lucide-react';
 import { AuthUser } from '../types';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -40,7 +40,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Erro ao autenticar com a conta Google.');
+        throw new Error(data.error || 'Não foi possível entrar com sua conta Google.');
       }
 
       localStorage.setItem('dmg_auth_token', data.token);
@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onAuthSuccess(data.user, data.token);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Falha ao autenticar com o Google.');
+      setError(err.message || 'Falha ao conectar com o Google.');
     } finally {
       setLoading(false);
     }
@@ -96,15 +96,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none font-sans">
       <div
         id="modal-auth"
-        className="w-full max-w-md bg-[#0c0e17] border border-[#1f2438] rounded-2xl p-6 sm:p-8 shadow-2xl relative text-zinc-100 space-y-6 text-center"
+        className="w-full max-w-md bg-[#0c0e17] border border-[#1e2338] rounded-3xl p-6 sm:p-8 shadow-2xl relative text-zinc-100 space-y-6 text-center"
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
           title="Fechar"
         >
           <X className="w-5 h-5" />
@@ -113,7 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Modal Header */}
         <div className="flex flex-col items-center pt-2">
           {/* Google Icon Badge */}
-          <div className="w-16 h-16 rounded-2xl bg-white p-3 shadow-xl flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-white p-3.5 shadow-xl flex items-center justify-center mb-4">
             <svg viewBox="0 0 24 24" className="w-full h-full">
               <path
                 fill="#4285F4"
@@ -134,11 +134,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </svg>
           </div>
 
-          <h3 className="text-xl font-extrabold text-zinc-100">
-            Acesse com sua Conta Google
+          <h3 className="font-display text-xl font-extrabold text-white">
+            Entre com sua Conta Google
           </h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-            Faça login com sua conta oficial do Google para criar salas e transmitir sua gameplay.
+            Acesso rápido e seguro para criar suas salas e transmitir gameplay.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             id="btn-google-login-oauth"
             onClick={handleTriggerGooglePrompt}
             disabled={loading}
-            className="w-full max-w-[320px] py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full max-w-[320px] py-3.5 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer min-h-[44px]"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-zinc-900 border-t-transparent rounded-full" />
@@ -190,14 +190,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Security & Features footer */}
-        <div className="pt-3 border-t border-[#1b2032] flex flex-col items-center gap-1 text-xs text-zinc-500">
-          <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
+        {/* Security & Verification Footer */}
+        <div className="pt-3 border-t border-[#1b2034] flex flex-col items-center gap-1 text-xs text-zinc-400">
+          <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
             <span>Autenticação Oficial Google OAuth 2.0</span>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Acesso verificado e seguro.
+            Acesso criptografado e direto com os servidores Google.
           </p>
         </div>
       </div>
